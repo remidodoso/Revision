@@ -1,0 +1,6 @@
+# Exact stable pin: reproducible builds; toolchain upgrades are deliberate
+# commits (and perf-ledger series boundaries).
+[toolchain]
+channel = "1.95.0"
+components = ["rustfmt", "clippy"]
+targets = ["x86_64-unknown-linux-gnu", "aarch64-apple-darwin", "wasm32-unknown-unknown"]

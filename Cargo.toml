@@ -1,0 +1,26 @@
+# Virtual workspace manifest — no code of its own. Layout per
+# doc/revision_coding_standard.md; approved in doc/revision_boot02_proposal.md.
+
+[workspace]
+resolver = "3"
+members = ["src/rust/*"]
+
+[workspace.package]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+rust-version = "1.95"
+repository = "https://github.com/remidodoso/Revision"
+
+[workspace.dependencies]
+# Empty at bootstrap. Every entry arrives via a dependency checkpoint
+# (getstarted, ground rule 2): version stated once here, inherited by members.
+
+# Build profiles: external dependencies and RT crates optimized even in dev
+# builds (debug-assertions/overflow-checks stay on); other workspace members
+# default to opt-level 0 — raise to 1 empirically if iteration feels sluggish.
+# True --release is for latency measurement and real use.
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.dev.package.rev-engine]
+opt-level = 3

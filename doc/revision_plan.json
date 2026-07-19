@@ -5,7 +5,7 @@
     "docs": ["revision.md", "revision_requirements_v1.md", "revision_poc.md", "revision_getstarted.md", "revision_coding_standard.md"]
   },
   "now": [
-    { "ts": "2026-07-19", "text": "Planning phase. Requirements v1 complete (R-001..R-1513). PoC plan complete with all four design sketches. Coding standard doc created (revision_coding_standard.md); layout/naming decisions settled in discussion (root virtual workspace, src/rust/* members, rev- package prefix, sibling test modules). License decided: dual MIT OR Apache-2.0, GPL-free dependency tree. Awaiting new repo creation; no code exists yet." }
+    { "ts": "2026-07-19", "text": "Repo is live (github.com/remidodoso/Revision; boot-01 executing, Pages confirmation pending). boot-02 complete: proposal approved in full, workspace scaffolded (seven rev-* crates, toolchain pinned 1.95.0, four-job CI, licenses, file map) and locally verified green — awaiting user commit, then CI's first run. Next: boot-03 testing-stack checkpoint (gates core-01); dsp-01 Padlington inventory available any time." }
   ],
   "tracks": ["bootstrap", "core_store", "engine", "midi", "ui", "recording", "dsp", "misc"],
   "items": [
@@ -14,13 +14,13 @@
       "title": "Create new repository",
       "kind": "major",
       "track": "bootstrap",
-      "status": "planned",
+      "status": "verifying",
       "depends_on": [],
       "requirements": [],
       "links": [{ "doc": "revision_getstarted.md", "anchor": "Repo note" }],
       "plan": "User creates the new Revision repo, public on GitHub; the revision_* documents migrate there. User-only commits, always. Includes: license decision (checkpoint - before first push; interacts with R-1203 VST3 SDK licensing), .nojekyll for Pages, enable Pages so revision_plan.html becomes the live public dashboard.",
-      "verify": "",
-      "notes": [{ "ts": "2026-07-19", "text": "License checkpoint resolved: dual MIT OR Apache-2.0. Companion standards recorded in revision_coding_standard.md (Dependencies & licensing): GPL-free dependency tree, minimal-dependency posture, non-redistributable SDKs never vendored. Scaffold to include LICENSE-MIT + LICENSE-APACHE and per-crate license fields (boot-02)." }],
+      "verify": "Verified 2026-07-19: repo public at github.com/remidodoso/Revision, docs migrated; Pages live - revision_plan.html and .json serve 200, .md files serve verbatim (text/markdown; no front matter, so Jekyll passes them through even pre-.nojekyll). License decided; LICENSE files created. Remaining: next push carries .nojekyll (insurance) + LICENSE files + boot-02 scaffold; complete on that push.",
+      "notes": [{ "ts": "2026-07-19", "text": "License checkpoint resolved: dual MIT OR Apache-2.0. Companion standards recorded in revision_coding_standard.md (Dependencies & licensing): GPL-free dependency tree, minimal-dependency posture, non-redistributable SDKs never vendored. Scaffold to include LICENSE-MIT + LICENSE-APACHE and per-crate license fields (boot-02)." }, { "ts": "2026-07-19", "text": "Repo created and pushed: github.com/remidodoso/Revision, docs migrated, .nojekyll in place. Remaining: LICENSE files (arrive with boot-02 scaffold), confirm Pages enabled and dashboard serving." }],
       "created": "2026-07-19",
       "completed": null
     },
@@ -29,15 +29,15 @@
       "title": "[checkpoint] Workspace layout, toolchain, CI skeleton",
       "kind": "major",
       "track": "bootstrap",
-      "status": "planned",
+      "status": "complete",
       "depends_on": ["boot-01"],
       "requirements": ["R-101", "R-104"],
       "links": [{ "doc": "revision_poc.md", "anchor": "Architecture v0" }],
       "plan": "Propose crate names/directories per the revision_poc crate map, Rust toolchain/edition pins, CI running fmt/clippy/test plus Mac/Linux cross-compile checks. Human approval before creation.",
-      "verify": "",
-      "notes": [{ "ts": "2026-07-19", "text": "Pre-settled in discussion (recorded in revision_coding_standard.md): root virtual workspace manifest, members under src/rust/*, rev- package prefix with unprefixed directories, per-crate inner src/ kept, sibling test modules. Checkpoint proposal to incorporate; toolchain pin and CI skeleton remain open." }],
+      "verify": "Proposal (revision_boot02_proposal.md) approved by user with all seven recommendations. Scaffold created; local verification on pinned 1.95.0: cargo check --workspace green (all seven crates), cargo fmt --check clean, cargo clippy --all-targets -D warnings clean, cargo check -p rev-core --target wasm32-unknown-unknown green, file-map JSON parses. CI workflow itself unexercised until first push (user commit) - watch its first run.",
+      "notes": [{ "ts": "2026-07-19", "text": "Pre-settled in discussion (recorded in revision_coding_standard.md): root virtual workspace manifest, members under src/rust/*, rev- package prefix with unprefixed directories, per-crate inner src/ kept, sibling test modules. Checkpoint proposal to incorporate; toolchain pin and CI skeleton remain open." }, { "ts": "2026-07-19", "text": "Written proposal complete: revision_boot02_proposal.md (scaffold incl. all seven crates empty, toolchain pin 1.95.0/edition 2024, four-job CI, cargo-deny license audit, file map scaffold, build profiles). Seven decisions requested in its §8; awaiting approval." }, { "ts": "2026-07-19", "text": "All seven recommendations approved; scaffold implemented and verified locally (see verify). Files: root Cargo.toml, rust-toolchain.toml, deny.toml, .gitignore, LICENSE-MIT, LICENSE-APACHE, README.md, .github/workflows/ci.yml, seven crates under src/rust/, doc/revision_file_map.{json,html}, testdata/.gitkeep. Awaiting user commit; CI first run will complete verification." }],
       "created": "2026-07-19",
-      "completed": null
+      "completed": "2026-07-19"
     },
     {
       "id": "boot-03",
@@ -50,7 +50,7 @@
       "links": [{ "doc": "revision_getstarted.md", "anchor": "Testing doctrine" }],
       "plan": "Propose unit/property-test framework choices, golden-master harness design, and TMON kill-test scripting approach. Human approval before adoption.",
       "verify": "",
-      "notes": [],
+      "notes": [{ "ts": "2026-07-19", "text": "Scope grown by discussion: also propose bench framework (criterion vs divan), soak/deadline harness placement (xtask-adjacent), and the perf ledger format. Doctrine settled (see getstarted Testing doctrine): perf tests track, never gate, unless a requirement documents acceptance status and the user singles it out; historical record with build-settings/platform/toolchain/commit metadata from day 1 of RT work, rendered as day-over-day graphs (JSON + HTML viewer pattern, Pages-servable)." }],
       "created": "2026-07-19",
       "completed": null
     },
@@ -155,7 +155,7 @@
       "links": [],
       "plan": "Open a duplex WASAPI-shared stream (input unused but open); device selection; block-size/format handling; callback skeleton with allocation guard.",
       "verify": "",
-      "notes": [],
+      "notes": [{ "ts": "2026-07-19", "text": "Perf ledger starts here — 'day 1 of first real-time work': callback timing stats (mean/worst/xruns) from the telemetry ring recorded into the historical ledger from this item onward, with build-settings/platform/commit metadata." }],
       "created": "2026-07-19",
       "completed": null
     },

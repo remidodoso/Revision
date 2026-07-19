@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Revision — File Map</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: system-ui, sans-serif;
+    max-width: 60rem;
+    margin: 2rem auto;
+    padding: 0 1rem;
+    line-height: 1.45;
+  }
+  h1 { font-size: 1.4rem; }
+  .meta { color: color-mix(in srgb, currentColor 60%, transparent); font-size: 0.85rem; }
+  table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+  th, td { text-align: left; padding: 0.35rem 0.75rem; vertical-align: top; }
+  th { border-bottom: 2px solid currentColor; }
+  tr + tr td { border-top: 1px solid color-mix(in srgb, currentColor 20%, transparent); }
+  td.path { font-family: ui-monospace, monospace; white-space: nowrap; }
+  td.layer { font-size: 0.85rem; opacity: 0.7; }
+</style>
+</head>
+<body>
+<h1>Revision — File Map</h1>
+<p class="meta" id="meta_line">loading…</p>
+<table>
+  <thead><tr><th>Path</th><th>Layer</th><th>Description</th></tr></thead>
+  <tbody id="map_body"></tbody>
+</table>
+<script>
+  // Fetch the map and render one row per entry (path, layer, description).
+  fetch("revision_file_map.json")
+    .then((resp) => resp.json())
+    .then((map) => {
+      const meta_line = document.getElementById("meta_line");
+      meta_line.textContent =
+        `updated ${map.meta.updated} — granularity: ${map.meta.granularity} — checker: ${map.meta.checker}`;
+      const body = document.getElementById("map_body");
+      for (const item of map.entry) {
+        const row = body.insertRow();
+        row.insertCell().textContent = item.path;
+        row.insertCell().textContent = item.layer || "";
+        row.insertCell().textContent = item.desc;
+        row.cells[0].className = "path";
+        row.cells[1].className = "layer";
+      }
+    })
+    .catch((err) => {
+      document.getElementById("meta_line").textContent =
+        `failed to load revision_file_map.json: ${err}`;
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+# CI skeleton per doc/revision_boot02_proposal.md §5.
+# The pinned toolchain and cross-targets come from rust-toolchain.toml
+# (rustup's cargo shim auto-installs them on first invocation).
+# Perf doctrine note: nothing here gates on timing — perf tests track, never gate.
+
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo fmt --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo test --workspace
+
+  # Cross-compile *checks* (no linking), honestly not tests: proves the code
+  # still compiles for the other family platforms. If a future dependency's
+  # build script probes for Apple SDKs, the darwin check moves to a macos runner.
+  cross:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo check --workspace --target x86_64-unknown-linux-gnu
+      - run: cargo check --workspace --target aarch64-apple-darwin
+      - run: cargo check -p rev-core --target wasm32-unknown-unknown
+
+  # Enforces the GPL-free dependency standard against deny.toml's allowlist.
+  license:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check licenses

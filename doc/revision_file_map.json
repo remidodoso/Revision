@@ -1,0 +1,23 @@
+{
+  "meta": {
+    "updated": "2026-07-19",
+    "granularity": "directory/module; file-level only where a file merits individual comment",
+    "checker": "planned: xtask existence check (boot-03+)",
+    "viewer": "revision_file_map.html"
+  },
+  "entry": [
+    { "path": "Cargo.toml", "desc": "virtual workspace manifest: members, shared package fields, build profiles (deps + RT crates optimized in dev)", "generated": false },
+    { "path": "rust-toolchain.toml", "desc": "exact stable pin (1.95.0), components, cross-check targets", "generated": false },
+    { "path": "deny.toml", "desc": "cargo-deny license allowlist - enforces the GPL-free dependency standard", "generated": false },
+    { "path": ".github/workflows/", "desc": "CI: lint (fmt+clippy), test (windows), cross-compile checks (linux/mac/wasm), license audit", "generated": false },
+    { "path": "doc/", "desc": "project documents: rationale (revision.md), requirements v1, PoC plan, getting-started, coding standard, boot-02 proposal, plan JSON + HTML dashboard, this file map", "generated": false },
+    { "path": "src/rust/core/", "desc": "rev-core: pure model - event, phrase, instance, track, tempo map, tuning, commands; degree-native, 5040 ppq; WASM-able (R-104)", "layer": "core", "generated": false },
+    { "path": "src/rust/engine/", "desc": "rev-engine: RT audio - cpal duplex, engine-owned clock, scheduler, graph runtime (Web Audio semantics), zero-alloc callback", "layer": "engine", "generated": false },
+    { "path": "src/rust/store/", "desc": "rev-store: SQLite store-primary persistence - journal (only write path), snapshots, TMON crash-safety", "layer": "store", "generated": false },
+    { "path": "src/rust/midi/", "desc": "rev-midi: midir wrapper - enumeration, driver-boundary timestamps, thru fast path, live/capture fork", "layer": "io", "generated": false },
+    { "path": "src/rust/ui_mech/", "desc": "rev-ui-mech: mechanism layer - winit/wgpu/cosmic-text, input routing, hands-off clause (R-907); no Win32 outside this crate", "layer": "ui", "generated": false },
+    { "path": "src/rust/ui_kit/", "desc": "rev-ui-kit: control-skin widget kit (R-712), built against the mechanism contract only", "layer": "ui", "generated": false },
+    { "path": "src/rust/app/", "desc": "rev-app: composition root binary - wiring, command dispatch, view state; no musical logic in any frontend", "layer": "app", "generated": false },
+    { "path": "testdata/", "desc": "golden-master reference data (empty until dsp-02)", "generated": false }
+  ]
+}

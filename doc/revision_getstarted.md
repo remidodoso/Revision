@@ -99,6 +99,13 @@ spectra + meters); determinism gates everywhere (render twice → bit-identical)
 realization view is the oracle for any optimized twin; all tests green before any
 checkpoint review is requested.
 
+**Performance tests track; they never gate.** A perf test is an acceptance test only
+where a requirement documents it *and* the user has singled it out as such; otherwise
+its job is the historical record. That record starts on day 1 of real-time work
+(stage 2): every run logged with metrics, build settings (profile/opt-levels/features),
+platform/machine, toolchain, and commit — series are comparable only within like
+metadata — feeding day-over-day graphs. Ledger format decided at boot-03.
+
 ## Gotchas carried over (Notorolla scar tissue; learn free)
 
 - **EOL-aware file rewriting.** Repos may be CRLF (`core.autocrlf`). Any tool that
