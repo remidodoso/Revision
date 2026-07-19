@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Revision — Plan</title>
+<style>
+  :root {
+    --bg: #14161a; --panel: #1c1f25; --card: #23272f; --text: #cfd6e0;
+    --dim: #a2abbd; --line: #333945; --accent: #ffb000;
+    --planned: #566070; --described: #4d7dbf; --executing: #c9973a;
+    --verifying: #9a6fd0; --complete: #4ea36a; --archived: #3a3f48;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 16px/1.45 "Segoe UI", system-ui, sans-serif; }
+  header { padding: 14px 22px; border-bottom: 1px solid var(--line);
+           display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+  header h1 { font-size: 20px; margin: 0; letter-spacing: 1px; }
+  header .updated { color: var(--dim); font-size: 14px; }
+  #now { background: var(--panel); margin: 14px 22px; padding: 10px 14px;
+         border-left: 3px solid var(--accent); border-radius: 4px; }
+  #now .ts { color: var(--dim); font-size: 14px; margin-right: 8px; }
+  #controls { margin: 0 22px 10px; display: flex; gap: 10px; align-items: center; }
+  select { background: var(--card); color: var(--text); border: 1px solid var(--line);
+           border-radius: 4px; padding: 3px 6px; font: inherit; }
+  #legend { margin-left: auto; display: flex; gap: 10px; font-size: 14px; color: var(--dim); }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+            margin-right: 4px; vertical-align: middle; }
+  .lane { margin: 10px 22px; }
+  .lane h2 { font-size: 15px; color: var(--dim); text-transform: uppercase;
+             letter-spacing: 2px; margin: 14px 0 6px; }
+  .items { display: flex; flex-wrap: wrap; gap: 8px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 6px;
+          padding: 8px 10px; min-width: 230px; max-width: 330px; flex: 1 1 250px;
+          border-left-width: 5px; cursor: default; }
+  .card.hl { outline: 2px solid var(--accent); }
+  .card .row1 { display: flex; gap: 8px; align-items: baseline; }
+  .card .id { font-family: Consolas, monospace; font-size: 13px; color: var(--dim); }
+  .card .kind { font-size: 12px; border: 1px solid var(--line); border-radius: 3px;
+                padding: 0 4px; color: var(--dim); }
+  .card .title { font-weight: 600; margin: 3px 0 5px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip { font-family: Consolas, monospace; font-size: 13px; border-radius: 3px;
+          padding: 0 5px; background: var(--panel); border: 1px solid var(--line);
+          color: var(--accent); cursor: pointer; text-decoration: none; }
+  .chip.dep { color: var(--dim); }
+  .card .dates { font-size: 13px; color: var(--dim); margin-top: 5px; }
+  .card .status { font-size: 12px; border: 1px solid; border-radius: 3px; padding: 0 4px; }
+  .st-planned   { color: var(--planned); }
+  .st-described { color: var(--described); }
+  .st-executing { color: var(--executing); }
+  .st-verifying { color: var(--verifying); }
+  .st-complete  { color: var(--complete); }
+  .st-archived  { color: var(--archived); }
+  .s-archived   { opacity: .6; }
+  #history { margin: 24px 22px; border-top: 1px solid var(--line); padding-top: 10px; }
+  #history h2 { font-size: 15px; color: var(--dim); text-transform: uppercase; letter-spacing: 2px; }
+  #history li { color: var(--dim); font-size: 15px; }
+  #history .when { font-family: Consolas, monospace; color: var(--complete); margin-right: 8px; }
+  #tooltip { position: fixed; display: none; max-width: 480px; background: #0d0f12;
+             border: 1px solid var(--accent); border-radius: 6px; padding: 10px 12px;
+             font-size: 15px; z-index: 10; pointer-events: none; white-space: pre-wrap; }
+  #err { margin: 40px; color: var(--executing); }
+</style>
+</head>
+<body>
+<header>
+  <h1>REVISION — PLAN</h1>
+  <span class="updated" id="updated"></span>
+</header>
+<div id="now"></div>
+<div id="controls">
+  <label>Track <select id="f_track"><option value="">all</option></select></label>
+  <label>Status <select id="f_status"><option value="">all</option></select></label>
+  <label>Kind <select id="f_kind"><option value="">all</option></select></label>
+  <div id="legend"></div>
+</div>
+<div id="lanes"></div>
+<div id="history"><h2>History (completed, by date)</h2><ul id="history_list"></ul></div>
+<div id="tooltip"></div>
+<div id="err" hidden></div>
+
+<script>
+"use strict";
+
+const statuses = ["planned", "described", "executing", "verifying", "complete", "archived"];
+const kinds = ["major", "between", "minor"];
+
+// Track colors: rainbow progression top-down, red and magenta skipped, desaturated,
+// similar brightness. New divisions slot into the progression by hue.
+const track_colors = {
+  bootstrap:  "#cf9668",  // orange
+  core_store: "#c9b664",  // amber-yellow
+  engine:     "#a8bd6a",  // yellow-green
+  midi:       "#7abd7d",  // green
+  ui:         "#66b8a8",  // teal
+  recording:  "#6aa8c9",  // cyan-blue
+  dsp:        "#7e93cf",  // blue
+  misc:       "#a186c4"   // violet
+};
+const track_color_fallback = "#8a94a6";
+
+function track_color(track) {
+  return track_colors[track] || track_color_fallback;
+}
+let plan = null;
+let req_map = {};   // "R-101" -> requirement text
+
+async function fetch_json(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(url + ": " + r.status);
+  return r.json();
+}
+
+async function fetch_text_optional(url) {
+  try { const r = await fetch(url); return r.ok ? await r.text() : ""; }
+  catch (e) { return ""; }
+}
+
+function parse_requirements(md_text) {
+  // Lines beginning "- R-nnn" start a requirement; continuation lines are indented.
+  const map = {};
+  let cur_id = null, cur_lines = [];
+  const flush = () => { if (cur_id) map[cur_id] = cur_lines.join(" ").replace(/\s+/g, " ").trim(); };
+  for (const line of md_text.split(/\r?\n/)) {
+    const m = line.match(/^- (R-\d+[a-z]?)\b(.*)$/);
+    if (m) { flush(); cur_id = m[1]; cur_lines = [m[2].replace(/^[.\s]*/, "")]; }
+    else if (cur_id && /^\s+\S/.test(line)) { cur_lines.push(line.trim()); }
+    else { flush(); cur_id = null; cur_lines = []; }
+  }
+  flush();
+  return map;
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+function dep_depth(item, by_id, seen) {
+  if (!item.depends_on || item.depends_on.length === 0) return 0;
+  if (seen.has(item.id)) return 0; // cycle guard; model forbids but viewer survives
+  seen.add(item.id);
+  let d = 0;
+  for (const dep_id of item.depends_on) {
+    const dep = by_id[dep_id];
+    if (dep) d = Math.max(d, 1 + dep_depth(dep, by_id, seen));
+  }
+  seen.delete(item.id);
+  return d;
+}
+
+function item_tip(item) {
+  let t = item.id + " — " + item.title + "\n\nPLAN: " + (item.plan || "(none yet)");
+  if (item.verify) t += "\n\nVERIFY: " + item.verify;
+  for (const n of item.notes || []) t += "\n\n[" + n.ts + "] " + n.text;
+  return t;
+}
+
+function show_tip(text, ev) {
+  const tip = document.getElementById("tooltip");
+  tip.textContent = text;
+  tip.style.display = "block";
+  position_tip(ev);
+}
+
+function position_tip(ev) {
+  const tip = document.getElementById("tooltip");
+  const pad = 14;
+  let x = ev.clientX + pad, y = ev.clientY + pad;
+  const r = tip.getBoundingClientRect();
+  if (x + r.width > innerWidth - 8) x = ev.clientX - r.width - pad;
+  if (y + r.height > innerHeight - 8) y = ev.clientY - r.height - pad;
+  tip.style.left = x + "px";
+  tip.style.top = y + "px";
+}
+
+function hide_tip() { document.getElementById("tooltip").style.display = "none"; }
+
+function attach_tip(el, text_fn) {
+  el.addEventListener("mouseenter", ev => show_tip(text_fn(), ev));
+  el.addEventListener("mousemove", position_tip);
+  el.addEventListener("mouseleave", hide_tip);
+}
+
+function render() {
+  const f_track = document.getElementById("f_track").value;
+  const f_status = document.getElementById("f_status").value;
+  const f_kind = document.getElementById("f_kind").value;
+  const by_id = {};
+  for (const it of plan.items) by_id[it.id] = it;
+
+  const lanes_el = document.getElementById("lanes");
+  lanes_el.innerHTML = "";
+  for (const track of plan.tracks) {
+    if (f_track && track !== f_track) continue;
+    const items = plan.items
+      .filter(it => it.track === track)
+      .filter(it => !f_status || it.status === f_status)
+      .filter(it => !f_kind || it.kind === f_kind)
+      .sort((a, b) => dep_depth(a, by_id, new Set()) - dep_depth(b, by_id, new Set())
+                      || a.id.localeCompare(b.id));
+    if (items.length === 0) continue;
+
+    const lane = document.createElement("div");
+    lane.className = "lane";
+    lane.innerHTML = '<h2 style="color:' + track_color(track) + '">' + esc(track) + "</h2>";
+    const wrap = document.createElement("div");
+    wrap.className = "items";
+
+    for (const it of items) {
+      const card = document.createElement("div");
+      card.className = "card s-" + it.status;
+      card.id = "card-" + it.id;
+      card.style.borderLeftColor = track_color(it.track);
+
+      let html = '<div class="row1"><span class="id">' + esc(it.id) + "</span>" +
+                 '<span class="kind">' + esc(it.kind) + "</span>" +
+                 '<span class="status st-' + esc(it.status) + '">' + esc(it.status) + "</span></div>" +
+                 '<div class="title">' + esc(it.title) + "</div>" +
+                 '<div class="chips"></div>' +
+                 '<div class="dates">' + esc(it.created || "") +
+                 (it.completed ? " → " + esc(it.completed) : "") + "</div>";
+      card.innerHTML = html;
+      attach_tip(card, () => item_tip(it));
+
+      const chips = card.querySelector(".chips");
+      for (const dep_id of it.depends_on || []) {
+        const c = document.createElement("span");
+        c.className = "chip dep";
+        c.textContent = "⇐ " + dep_id;
+        c.addEventListener("click", ev => {
+          ev.stopPropagation();
+          const target = document.getElementById("card-" + dep_id);
+          if (target) {
+            target.scrollIntoView({ behavior: "smooth", block: "center" });
+            target.classList.add("hl");
+            setTimeout(() => target.classList.remove("hl"), 1600);
+          }
+        });
+        chips.appendChild(c);
+      }
+      for (const rid of it.requirements || []) {
+        const c = document.createElement("span");
+        c.className = "chip";
+        c.textContent = rid;
+        attach_tip(c, () => rid + ": " + (req_map[rid] || "(not found in requirements doc)"));
+        chips.appendChild(c);
+      }
+      for (const link of it.links || []) {
+        const a = document.createElement("a");
+        a.className = "chip";
+        a.textContent = "→ " + link.doc + (link.anchor ? " §" + link.anchor : "");
+        a.href = link.doc;
+        a.target = "_blank";
+        chips.appendChild(a);
+      }
+      wrap.appendChild(card);
+    }
+    lane.appendChild(wrap);
+    lanes_el.appendChild(lane);
+  }
+}
+
+function render_static(archive_items) {
+  document.getElementById("updated").textContent =
+    "updated " + plan.meta.updated + " — data: revision_plan.json";
+  const now_el = document.getElementById("now");
+  now_el.innerHTML = (plan.now || [])
+    .map(n => '<div><span class="ts">' + esc(n.ts) + "</span>" + esc(n.text) + "</div>")
+    .join("");
+
+  const legend = document.getElementById("legend");
+  legend.innerHTML = statuses
+    .map(s => '<span><span class="swatch" style="background:var(--' + s + ')"></span>' + s + "</span>")
+    .join("");
+
+  const fill = (sel_id, values) => {
+    const sel = document.getElementById(sel_id);
+    for (const v of values) {
+      const o = document.createElement("option");
+      o.value = v; o.textContent = v;
+      sel.appendChild(o);
+    }
+    sel.addEventListener("change", render);
+  };
+  fill("f_track", plan.tracks);
+  fill("f_status", statuses);
+  fill("f_kind", kinds);
+
+  const done = plan.items.concat(archive_items)
+    .filter(it => it.completed)
+    .sort((a, b) => String(a.completed).localeCompare(String(b.completed)));
+  document.getElementById("history_list").innerHTML = done.length
+    ? done.map(it => '<li><span class="when">' + esc(it.completed) + "</span>" +
+                     esc(it.id) + " — " + esc(it.title) + "</li>").join("")
+    : "<li>(nothing completed yet)</li>";
+}
+
+async function main() {
+  try {
+    plan = await fetch_json("revision_plan.json");
+  } catch (e) {
+    const err = document.getElementById("err");
+    err.hidden = false;
+    err.textContent = "Could not load revision_plan.json (" + e.message + "). " +
+      "Serve this directory (e.g. python -m http.server 8000) and open " +
+      "http://localhost:8000/revision_plan.html — file:// blocks fetch.";
+    return;
+  }
+  let archive_items = [];
+  try { archive_items = (await fetch_json("revision_plan_archive.json")).items || []; }
+  catch (e) { /* archive optional */ }
+  req_map = parse_requirements(await fetch_text_optional("revision_requirements_v1.md"));
+  render_static(archive_items);
+  render();
+}
+
+main();
+</script>
+</body>
+</html>
