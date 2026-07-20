@@ -2,8 +2,9 @@
 
 A note-centric, degree-native compositional tool — a reimagining of Opcode
 Vision's essence with 21st-century enhancements. Currently in early
-foundation work; the planning documents live in [doc/](doc/) — start with
-[doc/revision_getstarted.md](doc/revision_getstarted.md).
+foundation work.
+
+[Planning and status](https://remidodoso.github.io/Revision/doc/revision_plan.html)
 
 ## License
 
