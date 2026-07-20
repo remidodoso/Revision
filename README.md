@@ -4,6 +4,8 @@ A note-centric, degree-native compositional tool — a reimagining of Opcode
 Vision's essence with 21st-century enhancements. Currently in early
 foundation work.
 
+[Proof of Concept](https://github.com/remidodoso/Revision/blob/main/doc/revision_poc.md)
+
 [Planning and status](https://remidodoso.github.io/Revision/doc/revision_plan.html)
 
 ## License
