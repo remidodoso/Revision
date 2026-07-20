@@ -5,7 +5,7 @@
     "docs": ["revision.md", "revision_requirements_v1.md", "revision_poc.md", "revision_getstarted.md", "revision_coding_standard.md"]
   },
   "now": [
-    { "ts": "2026-07-19", "text": "Repo is live (github.com/remidodoso/Revision; boot-01 executing, Pages confirmation pending). boot-02 complete: proposal approved in full, workspace scaffolded (seven rev-* crates, toolchain pinned 1.95.0, four-job CI, licenses, file map) and locally verified green — awaiting user commit, then CI's first run. Next: boot-03 testing-stack checkpoint (gates core-01); dsp-01 Padlington inventory available any time." }
+    { "ts": "2026-07-19", "text": "Bootstrap complete (boot-01/02/03) and core-01 complete: schema DDL, command vocabulary, and journal format approved after deep design review (tuning materialization stack, window semantics, note number / pitch class / degree / midi note terminology applied to requirements). core-02 implementation (model types + store - first real Rust) is unblocked and awaits make-it-so. Also available: eng-01/ui-01 checkpoint proposals, dsp-01 Padlington inventory, xtask filemap implementation (serde_json approved)." }
   ],
   "tracks": ["bootstrap", "core_store", "engine", "midi", "ui", "recording", "dsp", "misc"],
   "items": [
@@ -14,15 +14,15 @@
       "title": "Create new repository",
       "kind": "major",
       "track": "bootstrap",
-      "status": "verifying",
+      "status": "complete",
       "depends_on": [],
       "requirements": [],
       "links": [{ "doc": "revision_getstarted.md", "anchor": "Repo note" }],
       "plan": "User creates the new Revision repo, public on GitHub; the revision_* documents migrate there. User-only commits, always. Includes: license decision (checkpoint - before first push; interacts with R-1203 VST3 SDK licensing), .nojekyll for Pages, enable Pages so revision_plan.html becomes the live public dashboard.",
-      "verify": "Verified 2026-07-19: repo public at github.com/remidodoso/Revision, docs migrated; Pages live - revision_plan.html and .json serve 200, .md files serve verbatim (text/markdown; no front matter, so Jekyll passes them through even pre-.nojekyll). License decided; LICENSE files created. Remaining: next push carries .nojekyll (insurance) + LICENSE files + boot-02 scaffold; complete on that push.",
+      "verify": "Verified 2026-07-19: repo public at github.com/remidodoso/Revision, docs migrated; Pages live - revision_plan.html and .json serve 200, .md files serve verbatim (text/markdown; no front matter, so Jekyll passes them through even pre-.nojekyll). License decided; LICENSE files created. Completed 2026-07-19 with the 'initial framework' push: .nojekyll deployed (200 on Pages), LICENSE files and Cargo.lock in repo, CI first run green (all four jobs: lint, test, cross, license - the mac-cross-from-linux and cargo-deny assumptions both proven).",
       "notes": [{ "ts": "2026-07-19", "text": "License checkpoint resolved: dual MIT OR Apache-2.0. Companion standards recorded in revision_coding_standard.md (Dependencies & licensing): GPL-free dependency tree, minimal-dependency posture, non-redistributable SDKs never vendored. Scaffold to include LICENSE-MIT + LICENSE-APACHE and per-crate license fields (boot-02)." }, { "ts": "2026-07-19", "text": "Repo created and pushed: github.com/remidodoso/Revision, docs migrated, .nojekyll in place. Remaining: LICENSE files (arrive with boot-02 scaffold), confirm Pages enabled and dashboard serving." }],
       "created": "2026-07-19",
-      "completed": null
+      "completed": "2026-07-19"
     },
     {
       "id": "boot-02",
@@ -44,30 +44,30 @@
       "title": "[checkpoint] Testing stack selection",
       "kind": "major",
       "track": "bootstrap",
-      "status": "planned",
+      "status": "complete",
       "depends_on": ["boot-01"],
       "requirements": ["R-204", "R-1503"],
       "links": [{ "doc": "revision_getstarted.md", "anchor": "Testing doctrine" }],
       "plan": "Propose unit/property-test framework choices, golden-master harness design, and TMON kill-test scripting approach. Human approval before adoption.",
-      "verify": "",
-      "notes": [{ "ts": "2026-07-19", "text": "Scope grown by discussion: also propose bench framework (criterion vs divan), soak/deadline harness placement (xtask-adjacent), and the perf ledger format. Doctrine settled (see getstarted Testing doctrine): perf tests track, never gate, unless a requirement documents acceptance status and the user singles it out; historical record with build-settings/platform/toolchain/commit metadata from day 1 of RT work, rendered as day-over-day graphs (JSON + HTML viewer pattern, Pages-servable)." }],
+      "verify": "Proposal (revision_boot03_proposal.md) approved by user, all eight decisions. On-approval scope implemented: rev-testkit + rev-xtask scaffolded (doc-commented), .cargo/config.toml xtask alias working (bare invocation prints usage, exits 1 as designed), coding-standard Tests section updated, file map updated same-gesture (17 entries, all <=140 chars, JSON valid). cargo check/fmt/clippy green on the 9-crate workspace. proptest/criterion deliberately not yet in manifests - they enter with their first consumer (stage 1/2).",
+      "notes": [{ "ts": "2026-07-19", "text": "Scope grown by discussion: also propose bench framework (criterion vs divan), soak/deadline harness placement (xtask-adjacent), and the perf ledger format. Doctrine settled (see getstarted Testing doctrine): perf tests track, never gate, unless a requirement documents acceptance status and the user singles it out; historical record with build-settings/platform/toolchain/commit metadata from day 1 of RT work, rendered as day-over-day graphs (JSON + HTML viewer pattern, Pages-servable)." }, { "ts": "2026-07-19", "text": "Written proposal complete: revision_boot03_proposal.md (std harness, proptest, custom golden-master harness with .f32+JSON testdata format, rev-testkit and rev-xtask crates, seeded TMON kill-loop, criterion, perf/ledger.jsonl machine-keyed format). Eight decisions requested in its §8; awaiting approval." }, { "ts": "2026-07-19", "text": "Amended after file-map-purpose discussion (primary purpose: agent file discovery without excess context): filemap checker is two-way, mismatches are failures. Companion changes landed: CLAUDE.md created (map-first instruction + ground rules), coding standard Bookkeeping section (same-gesture map updates, retrieval-style descs <=140 chars), file map descs rewritten retrieval-style." }, { "ts": "2026-07-19", "text": "Approved (all eight) and implemented per on-approval scope. Forward flag: implementing xtask filemap needs a JSON-reading approach - serde_json is the natural candidate and will be raised as a dependency checkpoint at that point (also wanted later by xtask perf for ledger records and criterion harvest)." }],
       "created": "2026-07-19",
-      "completed": null
+      "completed": "2026-07-19"
     },
     {
       "id": "core-01",
       "title": "[checkpoint] Schema DDL, command vocabulary, journal format",
       "kind": "major",
       "track": "core_store",
-      "status": "planned",
+      "status": "complete",
       "depends_on": ["boot-02", "boot-03"],
       "requirements": ["R-201", "R-205", "R-401", "R-405", "R-407"],
       "links": [{ "doc": "revision_poc.md", "anchor": "Core schema sketch v0" }],
       "plan": "Concrete DDL from the schema sketch (snake_case, singular table names), command structs, journal redo/undo payload format. Human approval before implementation.",
-      "verify": "",
-      "notes": [{ "ts": "2026-07-19", "text": "Convention corrected: table and variable names singular, never plural (getstarted Conventions updated; poc schema sketch renamed accordingly)." }],
+      "verify": "Checkpoint satisfied through iterative review (revision_core01_proposal.md): all eight decisions ruled by user (4 amended to 16-bit velocity), phrase pass ruled (six rulings incl. window semantics + offset_tick), tuning/scale redesign grounded in Notorolla consumer inventory, terminology settled (note number / pitch class / degree / midi note; transpose by degree vs chromatically) and applied to revision_requirements_v1.md (21 edits: R-002..R-810 incl. R-509 applicability/idiomatic split, R-401 window, R-402 16-bit velocity, R-405 offset+chromatic, R-423 two transpositions, section-6 Definitions block); schema column renamed note_per_period to match. DDL, command vocabulary, journal format approved; core-02 implementation unblocked.",
+      "notes": [{ "ts": "2026-07-19", "text": "Convention corrected: table and variable names singular, never plural (getstarted Conventions updated; poc schema sketch renamed accordingly)." }, { "ts": "2026-07-19", "text": "Written proposal complete: revision_core01_proposal.md - full DDL (meta, tuning, scale, phrase, track, event, instance, tempo_point, journal, snapshot; XOR containers; _tick columns; usec_per_quarter tempo), realized view v0 SQL, command vocabulary (singular names), append-only journal with undo/redo-as-entries, builtin tunings seeded (12-ET/16-ET/JI), deps rusqlite + serde/serde_json. Eight decisions in its §7; awaiting approval." }, { "ts": "2026-07-19", "text": "Tuning/scale sections substantially revised after design discussion grounded in a read-only Notorolla consumer inventory (grid/playback/transforms/generators/harmony): three-level stack (tuning definition + exact tuning_note rows -> materialized_tuning_instance binder -> persisted materialized_tuning result rows), modulus-keyed scale (aperiodic branch tuning-bound via XOR), signed note numbers with anchor-60 convention, genesis gesture, latest-instance-wins resolution, euclidean-mod + owned-pow laws. Renames queued for the phrase pass: event.degree -> note_number, instance -> phrase_instance, phrase scale/root binding. Terminology (note number / degree / midi note) implies requirements edits (R-002/R-423/R-508/R-509) - user-owned, list to be drafted." }, { "ts": "2026-07-19", "text": "Convention batch applied: event.note_number rename; instance -> phrase_instance (table, view alias, CreatePhraseInstance/SetPhraseInstanceParam); realized -> v_realized; indexes renamed to [object]_[column...]_i; explicit CROSS JOIN for the correlated generate_series. Coding standard gained SQL section (ANSI joins, identifier conventions, v_/_i, no bare instance) and Arithmetic section (rem_euclid law). Only phrase scale binding remains queued for the phrase pass." }, { "ts": "2026-07-19", "text": "All eight decisions ruled by user: 1-3, 5-8 as recommended; 4 amended to velocity 0..65535 (MIDI 2.0 16-bit, spec-defined 7-bit boundary translation, UI presents 0..127). Decision 8 approval unblocks serde_json, hence xtask filemap implementation. Remaining before core-01 completes: phrase pass, requirements edit list." }, { "ts": "2026-07-19", "text": "Phrase pass ruled and folded: (1) scale_id + root columns on phrase; (2) window semantics - length_tick gates onsets and sets loop stride, dormant material preserved, tails ring past the edge, length fixed once set; offset_tick added to phrase_instance (window start into material, Vision play-bars-8-16-of-32); (3) make/unmake = composite gestures, no dedicated commands; (4) meter/instrument binding stay in extra; (5) R-415 v0 fallbacks stated non-precedent; (6) out-of-domain notes DROPPED at compile (user: less musical to invent a weird note than to miss an unrealizable one). v_realized updated with window predicates. Only the requirements edit list remains before core-01 closes." }, { "ts": "2026-07-19", "text": "Requirements edit list applied (user: apply, make it so) - datum renamed note number throughout; pitch class restored as the periodic mod term; degree reclaimed as the scale term (user correction: degree is a scale term, not a tuning term); midi note = wire value; R-509 rewritten (applicability by notes-per-period, idiomatic fit advisory); optionals in (R-401 window, R-402 16-bit velocity, R-405 offset + chromatic transpose); R-423 two first-class transpositions; MIDI/capture/plugin sections aligned (R-606/607/608/703/714/810). Proposal: note_per_period rename + terminology block. core-01 complete." }],
       "created": "2026-07-19",
-      "completed": null
+      "completed": "2026-07-19"
     },
     {
       "id": "core-02",
@@ -93,7 +93,7 @@
       "depends_on": ["core-02"],
       "requirements": ["R-404", "R-405", "R-422"],
       "links": [{ "doc": "revision.md", "anchor": "6f-bis" }],
-      "plan": "The realized view (direct events UNION instanced events with loop/transpose/clip) with hand-computed fixture tests; the view is the model's executable specification.",
+      "plan": "The v_realized view (direct events UNION instanced events with loop/transpose/clip) with hand-computed fixture tests; the view is the model's executable specification.",
       "verify": "",
       "notes": [],
       "created": "2026-07-19",
@@ -191,14 +191,14 @@
     },
     {
       "id": "eng-06",
-      "title": "Schedule compiler (reads realized view)",
+      "title": "Schedule compiler (reads v_realized)",
       "kind": "major",
       "track": "engine",
       "status": "planned",
       "depends_on": ["core-03", "eng-01"],
       "requirements": ["R-003", "R-302"],
       "links": [],
-      "plan": "Compile realized ORDER BY at through the tempo map into sample-stamped event chunks; look-ahead window feeding the command ring.",
+      "plan": "Compile v_realized ORDER BY at_tick through the tempo map into sample-stamped event chunks; look-ahead window feeding the command ring.",
       "verify": "",
       "notes": [],
       "created": "2026-07-19",

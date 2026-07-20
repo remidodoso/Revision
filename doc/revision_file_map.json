@@ -2,22 +2,27 @@
   "meta": {
     "updated": "2026-07-19",
     "granularity": "directory/module; file-level only where a file merits individual comment",
-    "checker": "planned: xtask existence check (boot-03+)",
+    "desc_style": "retrieval-oriented: keyword-bearing (key types, subsystem vocabulary, R-numbers), <=140 chars",
+    "checker": "planned: cargo xtask filemap, both directions, failures not warnings (boot-03)",
     "viewer": "revision_file_map.html"
   },
   "entry": [
-    { "path": "Cargo.toml", "desc": "virtual workspace manifest: members, shared package fields, build profiles (deps + RT crates optimized in dev)", "generated": false },
-    { "path": "rust-toolchain.toml", "desc": "exact stable pin (1.95.0), components, cross-check targets", "generated": false },
-    { "path": "deny.toml", "desc": "cargo-deny license allowlist - enforces the GPL-free dependency standard", "generated": false },
-    { "path": ".github/workflows/", "desc": "CI: lint (fmt+clippy), test (windows), cross-compile checks (linux/mac/wasm), license audit", "generated": false },
-    { "path": "doc/", "desc": "project documents: rationale (revision.md), requirements v1, PoC plan, getting-started, coding standard, boot-02 proposal, plan JSON + HTML dashboard, this file map", "generated": false },
-    { "path": "src/rust/core/", "desc": "rev-core: pure model - event, phrase, instance, track, tempo map, tuning, commands; degree-native, 5040 ppq; WASM-able (R-104)", "layer": "core", "generated": false },
-    { "path": "src/rust/engine/", "desc": "rev-engine: RT audio - cpal duplex, engine-owned clock, scheduler, graph runtime (Web Audio semantics), zero-alloc callback", "layer": "engine", "generated": false },
-    { "path": "src/rust/store/", "desc": "rev-store: SQLite store-primary persistence - journal (only write path), snapshots, TMON crash-safety", "layer": "store", "generated": false },
-    { "path": "src/rust/midi/", "desc": "rev-midi: midir wrapper - enumeration, driver-boundary timestamps, thru fast path, live/capture fork", "layer": "io", "generated": false },
-    { "path": "src/rust/ui_mech/", "desc": "rev-ui-mech: mechanism layer - winit/wgpu/cosmic-text, input routing, hands-off clause (R-907); no Win32 outside this crate", "layer": "ui", "generated": false },
-    { "path": "src/rust/ui_kit/", "desc": "rev-ui-kit: control-skin widget kit (R-712), built against the mechanism contract only", "layer": "ui", "generated": false },
+    { "path": "CLAUDE.md", "desc": "agent orientation: file-map-first discovery, make-it-so gating, never-commit, Notorolla read-only, pointers to getstarted/standard", "generated": false },
+    { "path": "Cargo.toml", "desc": "workspace manifest: member list src/rust/*, workspace.package, workspace.dependencies (checkpoint-gated), dev-profile opt-level overrides", "generated": false },
+    { "path": "rust-toolchain.toml", "desc": "toolchain pin 1.95.0, rustfmt+clippy components, cross targets: linux-gnu, aarch64-apple-darwin, wasm32", "generated": false },
+    { "path": "deny.toml", "desc": "cargo-deny license allowlist, GPL-free enforcement; new licenses enter here with their dependency checkpoint", "generated": false },
+    { "path": ".github/workflows/", "desc": "ci.yml jobs: lint (fmt, clippy -D warnings), test (windows), cross (linux/mac/wasm checks), license (cargo-deny)", "generated": false },
+    { "path": ".cargo/", "desc": "config.toml: cargo alias xtask = run --package rev-xtask", "generated": false },
+    { "path": "doc/", "desc": "revision.md (rationale), requirements (R-numbers), poc plan, getstarted (work rules), coding standard, proposals, plan json+html, file map", "generated": false },
+    { "path": "src/rust/core/", "desc": "rev-core: model - event, phrase, instance, track, tick 5040ppq (R-003), tuning seam degree/edo/mask (R-002), commands; WASM (R-104); no I/O", "layer": "core", "generated": false },
+    { "path": "src/rust/engine/", "desc": "rev-engine: RT audio - cpal duplex (R-301), sample clock (R-302), scheduler, graph nodes (R-704), voice, zero-alloc callback, telemetry ring", "layer": "engine", "generated": false },
+    { "path": "src/rust/store/", "desc": "rev-store: SQLite - journal (only write path, R-205), snapshot, realization view, gesture=transaction, TMON crash safety (R-202/R-808)", "layer": "store", "generated": false },
+    { "path": "src/rust/midi/", "desc": "rev-midi: midir - enumeration (R-601), driver timestamps + clock correlation (R-603), thru fast path (R-605), live/capture fork", "layer": "io", "generated": false },
+    { "path": "src/rust/ui_mech/", "desc": "rev-ui-mech: winit/wgpu/cosmic-text - window, input routing, pointer capture, focus, hands-off clause (R-907); only crate allowed Win32", "layer": "ui", "generated": false },
+    { "path": "src/rust/ui_kit/", "desc": "rev-ui-kit: control-skin widgets (R-712) - button, pop-up, toggle, numeric display, shuttle, locator bank; mechanism-contract client", "layer": "ui", "generated": false },
     { "path": "src/rust/app/", "desc": "rev-app: composition root binary - wiring, command dispatch, view state; no musical logic in any frontend", "layer": "app", "generated": false },
-    { "path": "testdata/", "desc": "golden-master reference data (empty until dsp-02)", "generated": false }
+    { "path": "src/rust/testkit/", "desc": "rev-testkit: test support (dev-dep only) - fixtures, golden-master comparators (spectra dB, meters, bit-identity), proptest strategies", "layer": "test", "generated": false },
+    { "path": "src/rust/xtask/", "desc": "rev-xtask: repo automation via cargo xtask - tmon (store kill-test), filemap (two-way map checker), perf (ledger recorder)", "layer": "tooling", "generated": false },
+    { "path": "testdata/", "desc": "golden-master references: .f32 audio + JSON sidecars (sample_rate, seed, provenance), spectra, meter values; empty until dsp-02", "generated": false }
   ]
 }

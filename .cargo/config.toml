@@ -1,0 +1,3 @@
+# Workspace-local cargo aliases.
+[alias]
+xtask = "run --package rev-xtask --"

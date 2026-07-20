@@ -18,6 +18,27 @@ decisions.
 - Packages are `rev-*` (`rev-core`, `rev-engine`); crate directories are
   unprefixed (`src/rust/core/`). (Cargo rejects bare `core`; prefix uniformly.)
 
+## SQL
+
+- ANSI join syntax only: conditions in `ON` (prefer `ON` over `USING`);
+  `CROSS JOIN` written explicitly when intended; comma joins never. (A
+  forgotten join condition degrades silently into a cartesian product; ANSI
+  makes it unwritable.)
+- PKs are `id`; FKs are `<table>_id`, role-qualified when duplicated or
+  self-referential (`parent_phrase_id`).
+- Views are `v_*`. (Performance triage: know it's a view before opening the
+  schema.) Indexes are `[object]_[column…]_i` — the object name inherited
+  verbatim, so view-derived objects carry `v_` by composition; unique indexes
+  use plain `_i` too.
+- Overloaded concept words are always qualified — no bare `instance`
+  (`phrase_instance`, `materialized_tuning_instance`).
+
+## Arithmetic
+
+- Note numbers are signed; pitch-class math uses euclidean modulo
+  (`rem_euclid`), never bare `%`. (Bare `%` fails only below the anchor —
+  silently.)
+
 ## Layout
 
 - Virtual workspace manifest at the repo root; crates under `src/rust/*`; later
@@ -48,6 +69,14 @@ decisions.
   silently split; some huge files legitimately have to exist. (Guards against
   main.js-style accretion — 3,641 lines of "for now".)
 
+## Bookkeeping
+
+- New, moved, or deleted files update `doc/revision_file_map.json` in the same
+  gesture; CI's filemap check fails on any mismatch, in both directions. (The
+  map is an agent context-economy device; staleness destroys its credibility.)
+- Map desc lines are written for retrieval, not documentation: keyword-bearing
+  (key types, subsystem vocabulary, R-numbers), ≤140 characters.
+
 ## Comments
 
 - Code is maintained with human-friendly comments.
@@ -65,5 +94,14 @@ decisions.
   (N test files as N binaries link N times; the umbrella links once.)
 - Tests requiring audio/MIDI hardware are `#[ignore]`-marked so `cargo test`
   passes on deviceless machines. (CI has no sound card.)
-- Shared harness/testkit shape: decided at the boot-03 checkpoint; entries land
-  here as they're settled.
+- Property tests: proptest; `proptest-regressions/` files are committed — every
+  shrunk counterexample becomes a permanent regression test. (Seeded
+  determinism, applied to failures.)
+- Benches: criterion, in per-crate `benches/`; `cargo xtask perf` harvests
+  results into `perf/ledger.jsonl`. Perf tests track, never gate (getstarted
+  doctrine).
+- Golden masters: `testdata/` holds raw `.f32` frames + JSON sidecars carrying
+  provenance (source, seed, generator version); comparators live in
+  rev-testkit and are phase-independent (spectra in dB, meters).
+- Shared test support: rev-testkit, consumed via dev-dependencies only. Repo
+  automation: rev-xtask, via `cargo xtask` (tmon, filemap, perf).

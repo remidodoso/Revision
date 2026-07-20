@@ -12,8 +12,8 @@ Tags: [P1] initial scope · [P2] subsequent · [Later] undetermined future ·
 - R-001. Revision is a note-based composition and playback system. The note, organized
   into phrases, is the primary unit of the model. All other media and views serve the
   note model.
-- R-002. Pitch shall be represented as tuning degrees. 12-ET is one supported tuning
-  with no privileged status in the model.
+- R-002. Pitch shall be represented as note numbers: signed integer positions in a
+  tuning. 12-ET is one supported tuning with no privileged status in the model.
 - R-003. Time shall be represented in musical units throughout the model: integer ticks
   at a fixed resolution of 5040 ticks per quarter note. Seconds are derived only at the
   engine boundary via the tempo map.
@@ -82,16 +82,19 @@ one-to-one.
 
 - R-401. The reusable unit of material is the phrase: a named container of events.
   Phrase length is an explicit attribute, defaulting to content extent at creation.
+  Length is a window: events beyond it are retained but do not sound.
 - R-402. Note events shall carry at minimum: position (ticks), duration (ticks),
-  degree, and velocity. The event vocabulary shall be extensible (continuous
+  note number, and velocity (16-bit, the MIDI 2.0 domain; translated at the MIDI 1.0
+  boundary per spec). The event vocabulary shall be extensible (continuous
   controllers, articulation, audio, and other types).
 - R-403. Phrases are polyphonic. Editors may impose stricter constraints; the model
   does not.
 - R-404. An instance places a phrase in time. All instances of a phrase share its
   material: editing the phrase affects every instance.
 - R-405. An instance shall carry its own play parameters, applied non-destructively:
-  length (independent of the phrase's length), loop count, transpose (in degrees),
-  mute. The parameter set shall be extensible (articulation template, timbre arc).
+  window offset (into the material), length (independent of the phrase's length),
+  loop count, transpose (chromatic: in note numbers), mute. The parameter set shall
+  be extensible (articulation template, timbre arc).
 - R-406. A track is an ordered container of events and instances. Tracks may hold both
   direct events and instances simultaneously.
 - R-407. Phrases may contain instances of other phrases (nesting). An instance of a
@@ -121,8 +124,8 @@ one-to-one.
   parent (polytempo). Engine scheduling shall support multiple concurrent tempo streams
   over the single timebase (R-302).
 - R-417. A phrase shall be playable standalone, without embedding in an arrangement.
-- R-418 [P1]. Mixed-tuning arrangements shall be supported: a phrase's degrees are
-  interpreted in the phrase's tuning.
+- R-418 [P1]. Mixed-tuning arrangements shall be supported: a phrase's note numbers
+  are interpreted in the phrase's tuning.
 - R-419. Meter is optional. No feature shall require a meter to be defined.
 - R-420. Where no meter is defined: bar display derives from phrase boundaries; the
   metronome clicks unaccented beats; notation and interchange formats requiring time
@@ -133,7 +136,10 @@ one-to-one.
 - R-422. Transformations compose through nesting: applying a transformation to a
   structured instance shall yield the same result as baking the instance first and then
   applying the transformation.
-- R-423. Transpose operates in the tuning of the transposed material. For structured
+- R-423. Transpose operates in the tuning of the transposed material. Two
+  transpositions are first-class: transpose by degree (scale-relative, requiring a
+  scale and root) and transpose chromatically (by note number — equivalently, degree
+  transposition under the null scale). For structured
   instances spanning multiple tunings, resulting transposability is determined by rule
   [Open: rule to be defined]; "not transposable" is a permitted outcome.
 - R-424. The model permits overlapping instances on a track. Editors shall not
@@ -144,13 +150,18 @@ one-to-one.
 
 ## 6. Tuning model
 
-- R-501. A tuning defines the mapping from degree (integer) to frequency. The mapping
-  shall be deterministic and identical across platforms.
+Definitions. *Note number*: the model's pitch datum — a signed integer position in a
+tuning. *Pitch class*: a note number reduced modulo notes-per-period (periodic tunings
+only). *Degree*: a position within a scale — the scale-relative, user-facing term.
+*Midi note*: the 0–127 MIDI wire value, appearing only at the MIDI I/O boundary.
+
+- R-501. A tuning defines the mapping from note number (signed integer) to frequency.
+  The mapping shall be deterministic and identical across platforms.
 - R-502. A tuning may declare a period (interval of equivalence) with a number of
-  degrees per period. The period is typically the octave but need not be (e.g.,
-  Bohlen-Pierce). Tunings with no period are fully supported; pitch-class logic (degree
-  modulo degrees-per-period) applies only to periodic tunings.
-- R-503. A tuning declares an anchor: one degree bound to a reference frequency.
+  notes per period. The period is typically the octave but need not be (e.g.,
+  Bohlen-Pierce). Tunings with no period are fully supported; pitch-class logic (note
+  number modulo notes-per-period) applies only to periodic tunings.
+- R-503. A tuning declares an anchor: one note number bound to a reference frequency.
 - R-504. Tunings whose intervals are ratio-defined shall use exact rational
   representation where appropriate, not approximated cents or floats.
 - R-505. 12-ET, just intonation, and 16-ET shall be provided. The tuning set is
@@ -159,14 +170,16 @@ one-to-one.
   from interchange shall never depend on an external tuning registry. [Open: whether
   the project store embeds tunings or references a shared library.]
 - R-507 [P2]. Tuning interchange: import and export of Scala (.scl/.kbm) files.
-- R-508. A tuning may define a naming scheme for its degrees and pitch classes
-  (letters for 12-ET, hexadecimal for 16-ET). Absent a scheme, degrees are named
-  numerically. Naming is presentation; the stored datum is always the degree.
-- R-509. A scale is a named subset of a tuning's pitch classes (periodic tunings) or
-  degrees (aperiodic tunings). Scales are tuning-specific; the full set is always
-  available.
+- R-508. A tuning may define a naming scheme for its notes and pitch classes
+  (letters for 12-ET, hexadecimal for 16-ET). Absent a scheme, notes are named
+  numerically. Naming is presentation; the stored datum is always the note number.
+- R-509. A scale is a named subset of pitch classes (periodic tunings; stored
+  root-relative) or of note numbers (aperiodic tunings). A periodic scale is
+  applicable to every tuning sharing its notes-per-period; aperiodic scales are
+  specific to their tuning. Idiomatic fit over a particular tuning and root is
+  advisory — curated or computed, never enforced. The full set is always available.
 - R-510. Scales constrain editors and generators; they do not restrict the model. Any
-  degree may be stored regardless of the active scale.
+  note number may be stored regardless of the active scale.
 - R-511. Withdrawn (superseded by R-517).
 - R-512 [P1]. The system shall provide a consonance analysis service: given a tuning
   and a timbre, rank intervals and chords by computed roughness. Available to harmony
@@ -176,14 +189,14 @@ one-to-one.
 - R-514 [P2]. Table-based tunings (measured or arbitrary frequency lists) may be
   supported.
 - R-515 [Arch]. Tuning may change dynamically over time. The engine and model shall not
-  assume a static tuning for the duration of playback; degree-to-frequency resolution
-  is time-aware. [Open: change semantics — discrete change events vs. continuous
+  assume a static tuning for the duration of playback; note-number-to-frequency
+  resolution is time-aware. [Open: change semantics — discrete change events vs. continuous
   interpolation between tunings; behavior of sounding notes across a change (hold pitch
   vs. retune).]
 - R-516 [P1]. The system shall provide recognition and elucidation of triads within
   material, per tuning; recognition of more general chords [Later]. Available to
   editors, analysis views, and generators.
-- R-517 [Open]. Root (reference degree) semantics — the relationship among anchor,
+- R-517 [Open]. Root (reference pitch class) semantics — the relationship among anchor,
   root, transpose, and the R-415 inheritance model — are not yet settled.
 
 ## 7. MIDI I/O
@@ -200,15 +213,17 @@ one-to-one.
 - R-605 [P1]. Thru routing shall exist: input routed to any instrument target
   (internal or external), with transforms (channel, transpose, mapping) applied in the
   live path, subject to the live-path latency budget (R-304).
-- R-606 [P1]. Input notes shall be mapped to degrees at capture time via a definable
-  input mapping (note number → degree). The default mapping is 12-ET identity.
+- R-606 [P1]. Input notes shall be mapped to note numbers at capture time via a
+  definable input mapping (midi note → note number). The default mapping is 12-ET
+  identity.
   [Open: non-12 input mappings (scale-mask-aware, isomorphic layouts) require
   experimental design — further work.]
-- R-607. Recorded material stores degrees (R-508). Raw performance data as received —
-  original note number, channel, velocity, controller values, unprocessed timing —
-  shall be retained as capture metadata.
-- R-608 [P1]. Output shall map degrees to MIDI per destination. 12-ET degrees emit
-  plain notes. [Open: non-12 output strategies (per-channel pitch bend, MPE, MTS) and
+- R-607. Recorded material stores note numbers (R-508). Raw performance data as
+  received — original midi note, channel, velocity, controller values, unprocessed
+  timing — shall be retained as capture metadata.
+- R-608 [P1]. Output shall map note numbers to MIDI per destination. 12-ET note
+  numbers emit plain midi notes. [Open: non-12 output strategies (per-channel pitch
+  bend, MPE, MTS) and
   behavior for unrepresentable material require experimental design — further work.]
 - R-609 [P2]. MPE shall be supported as a transport on input and output, mapping to
   and from the model's per-note expression representation (R-617).
@@ -255,8 +270,8 @@ Abstraction:
   Bindings are project state; phrase- and arrangement-level bindings follow
   R-414/R-415.
 - R-703 [Arch]. Internal instruments and effects are self-contained processors against
-  a narrow host interface: events in (pitch delivered through the interface as degree
-  with tuning context, or frequency), declared parameters, audio out, state
+  a narrow host interface: events in (pitch delivered through the interface as note
+  number with tuning context, or frequency), declared parameters, audio out, state
   serialization. No access to engine globals. This interface shall not preclude
   packaging processors as CLAP/VST3 plugins [Later].
 
@@ -294,8 +309,8 @@ Voices, parameters, behavior:
 - R-713 [P1]. Timbre parameters shall be loudness-neutral (energy-normalized): a
   timbre control is not a volume control.
 - R-714 [P1]. Instruments receive tuning context through the interface; tuning-aware
-  instruments may adapt partial structure (R-513). Degree-to-frequency resolution is
-  time-aware (R-515).
+  instruments may adapt partial structure (R-513). Note-number-to-frequency resolution
+  is time-aware (R-515).
 - R-715 [Arch]. Live-performance CPU-relief variants (reduced voices) shall never
   affect offline rendering: offline render always uses the full voice.
 - R-716 [P1]. Internal instruments add no buffering beyond the engine block in the
@@ -325,8 +340,8 @@ Shared transport behavior (domain-agnostic):
 
 MIDI capture:
 
-- R-810 [P1]. Real-time MIDI capture: driver timestamps authoritative (R-603), degrees
-  at capture (R-606), raw performance metadata retained (R-607).
+- R-810 [P1]. Real-time MIDI capture: driver timestamps authoritative (R-603), note
+  numbers at capture (R-606), raw performance metadata retained (R-607).
 - R-811 [P1]. Record quantize: input quantization applied non-destructively at
   capture; underlying raw timing is retained and the quantization is revisable after
   the fact.
