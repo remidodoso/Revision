@@ -1,6 +1,6 @@
 # Revision
 
-A note-centric, degree-native compositional tool — a reimagining of Opcode
+A note-centric, microtonal-native compositional tool — a reimagining of Opcode
 Vision's essence with 21st-century enhancements. Currently in early
 foundation work.
 
