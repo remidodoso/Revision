@@ -374,15 +374,15 @@
       "title": "Padlington JS inventory (read-only)",
       "kind": "minor",
       "track": "dsp",
-      "status": "planned",
+      "status": "complete",
       "depends_on": [],
       "requirements": ["R-705"],
       "links": [{ "doc": "revision_poc.md", "anchor": "Padlington port plan" }],
       "plan": "Read-only visit to Notorolla: patch fields, voice graph topology, envelope timings, spectral-profile construction. No Notorolla changes.",
-      "verify": "",
+      "verify": "Inventory written to doc/revision_padlington_inventory.md from padsynth.js, audio.js (voice + filter env + levels), instrument.js (defaults/params), notch/padsynth.mjs + meter-pad.mjs. Covers: bake pipeline formulas, bake-vs-playtime param partition + cache key, voice graph (eng-02 node census), AudioParam vocabulary (= eng-04 scope), level constants, test assets, and port decisions (spectra-not-bit-identity comparison, seed head offsets, formant table unification, FREF tuning-awareness). Zero Notorolla changes.",
       "notes": [],
       "created": "2026-07-19",
-      "completed": null
+      "completed": "2026-07-19"
     },
     {
       "id": "dsp-02",
