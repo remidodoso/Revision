@@ -33,6 +33,14 @@ softbuffer = "0.4"
 tiny-skia = "0.12"
 cosmic-text = "0.19"
 
+# Audio, approved at eng-01. rev-engine depends on these two and nothing else —
+# an engine that speaks only physics (R-312) has nothing to import from a model
+# of music. cpal is the device; rtrb is the three SPSC rings of eng-01 §4 (the
+# position seqlock is ours, since it is a different structure, not a duplicate).
+# The `asio` feature is never enabled here: proprietary SDKs stay out of the repo.
+cpal = "0.18.1"
+rtrb = "0.3.4"
+
 # Build profiles: external dependencies and RT crates optimized even in dev
 # builds (debug-assertions/overflow-checks stay on); other workspace members
 # default to opt-level 0 — raise to 1 empirically if iteration feels sluggish.

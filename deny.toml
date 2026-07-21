@@ -11,6 +11,8 @@ deny = ["BSD-4-Clause", "BSD-4-Clause-UC"]
 # Where a dependency offers a choice, the arm adopted is recorded, not inferred
 # (coding standard, "Dependencies & licensing"):
 #   self_cell  "Apache-2.0 OR GPL-2.0-only"  -> Apache-2.0 adopted, GPL declined.
+#   rtrb       "MIT OR Apache-2.0"           -> Apache-2.0 adopted.
+#   cpal       "Apache-2.0"                  -> no choice offered.
 # In an SPDX expression OR is a choice and AND is not; both arms of an AND apply.
 #
 # Bundled assets (fonts, icons) are not crates and are invisible here: they are

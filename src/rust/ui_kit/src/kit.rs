@@ -572,6 +572,15 @@ impl Kit {
         }
     }
 
+    /// A widget's label — its name in prose.
+    ///
+    /// Exists because a log record or an accessibility announcement that says
+    /// `WidgetId(3)` names nothing a person recognizes. The label is already the
+    /// widget's human name; this is how the application reaches it.
+    pub fn label(&self, id: WidgetId) -> Option<&str> {
+        Some(self.find(id)?.label.as_str())
+    }
+
     /// What a locator holds, if anything.
     pub fn locator_text(&self, id: WidgetId) -> Option<String> {
         match &self.find(id)?.kind {

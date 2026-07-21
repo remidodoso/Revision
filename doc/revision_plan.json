@@ -1,7 +1,7 @@
 {
   "meta": {
     "project": "Revision",
-    "updated": "2026-07-19",
+    "updated": "2026-07-21",
     "docs": [
       "revision.md",
       "revision_requirements_v1.md",
@@ -11,6 +11,10 @@
     ]
   },
   "now": [
+    {
+      "ts": "2026-07-21",
+      "text": "REVISION MAKES SOUND. eng-01 approved (21 decisions, no carve-outs) and archived to doc/completed/; eng-03 implemented and at verifying. The seam is four channels in three mechanisms: command ring and observation ring and return ring (rtrb SPSC), plus a hand-written position seqlock the counter reads. Engine::process is driver-agnostic - a cpal device driver and an offline driver call the same core - so CI runs the whole real-time discipline under an allocation guard on machines with no sound card, and R-1402's render-twice bit-identity gate works already. The governing law is R-312: below the engine boundary there is only physics, so the engine takes frequencies and never note numbers and tuning-awareness is structural. rev-engine depends on cpal and rtrb and nothing else - not rev-core, not rev-store, not rev-log. New crate rev-log writes one forever SQLite file (session as a column, WAL, synchronous=NORMAL, pruned at ~1 MB) with stderr echo in debug; every UI action and engine event now leaves a prose record. Verified on hardware: LG TV over HDMI/WASAPI, 48 kHz, 0 xruns, worst callback 68 us. Press Play in rev-app and you hear a tone while the counter follows the engine's own clock. Next: eng-02 (node API checkpoint) toward the PadSynth harpsichord/clavinet port, core-03/core-04 to close stage 1, then eng-06's schedule compiler which owes the chunk payload eng-01 deliberately deferred. Also open: ui-05 (log viewer), misc-03 (xtask license), core-01's content identity (R-1412)."
+    },
     {
       "ts": "2026-07-20",
       "text": "ui-03 is at verifying: Revision has a Control Bar. It is described as data and rendered through a derived skin onto a CPU paint list - transport cluster, mode toggles, record-mode pop-up, a counter editable while playing, tempo, shuttle and eight locators, all operable. 194 tests green. The session's lesson is recorded in the plan and the standard: every defect that mattered was 'the state exists and you cannot see it', and every one was found by operating the thing rather than by a test. That is now backed by an authority - R-939 makes the Macintosh Human Interface Guidelines (1992) the default for interaction behaviour where our requirements are silent, inventoried with chapter citations in revision_hig_inventory.md, with the departures we make deliberately named in R-940. Next target: AUDIO OUTPUT. That means eng-01, the engine-app interface checkpoint - the most consequential seam in the project, and the thing ui-04 waits on. It must carry the session-keyed engine decision from the multi-document discussion. Also open: core-03/core-04 close stage 1; core-01 owes content identity (R-1412) before project files exist in the wild; misc-03 (xtask license) now has real assets to audit."
@@ -293,7 +297,7 @@
       "title": "[checkpoint] Engine-app interface (rings, schedule, telemetry)",
       "kind": "major",
       "track": "engine",
-      "status": "planned",
+      "status": "complete",
       "depends_on": [
         "boot-02"
       ],
@@ -306,13 +310,26 @@
         {
           "doc": "revision_poc.md",
           "anchor": "Timing engine sketch"
+        },
+        {
+          "doc": "completed/revision_eng01_proposal.md",
+          "anchor": "Decisions requested"
         }
       ],
       "plan": "Command-ring message set, schedule chunk format, telemetry format. The most consequential seam; human approval before implementation.",
-      "verify": "",
-      "notes": [],
+      "verify": "Proposal approved 2026-07-20, all 21 decisions as recommended, no carve-outs. Requirements R-310 (compensate only system-introduced delay), R-311 (10 ms live-path budget), R-312 (below the engine boundary there is only physics) and R-624 (external instrument pairing) written into revision_requirements_v1.md. Proposal archived to doc/completed/revision_eng01_proposal.md. Settled: four channels/three mechanisms; driver-agnostic Engine::process; callback-is-the-clock; command set v0; schedule envelope with payload deferred to eng-06; rev-log; allocation guard; device and stream policy; rev-engine depends on cpal+rtrb only.",
+      "notes": [
+        {
+          "ts": "2026-07-20",
+          "text": "Proposal drafted 2026-07-20: doc/revision_eng01_proposal.md. Awaiting approval. Settles four channels/three mechanisms (command ring, position seqlock, observation ring, return ring), a driver-agnostic Engine::process with cpal and offline drivers, the sample clock and correlation, command set v0, the schedule chunk ENVELOPE (payload deferred to eng-06 because core-03 owes v_realized), the observation path plus a new rev-log crate, the allocation guard, and two dependencies (cpal 0.18.1 Apache-2.0, rtrb 0.3.4) measured at 13 net-new packages. Key scheduling consequence: first AUDIBLE sound moves to eng-03 (a tone over the command ring, no node graph), leaving eng-07/MHALL as first MUSICAL sound."
+        },
+        {
+          "ts": "2026-07-20",
+          "text": "Rewritten whole after seven discussion rounds (devices, duplex, the FS1R scenario, latency-compensation scope, MIDI delay, first instrument, music-vs-physics). Adds the governing law: the compiler is the last place music exists - the engine receives frequencies, never note numbers, so tuning-awareness is structural. Adds device/stream policy (single-device duplex, output-only recorded, channel zeroing, stream never stops, device loss), latency scope and budget, three proposed requirements (R-310 compensate only what the system introduces; R-311 10 ms live-path budget; R-624 external instrument pairing), and rev-engine's dependency surface reduced to cpal+rtrb only. 21 decisions in its section 18."
+        }
+      ],
       "created": "2026-07-19",
-      "completed": null
+      "completed": "2026-07-20"
     },
     {
       "id": "eng-02",
@@ -345,7 +362,7 @@
       "title": "cpal duplex bring-up",
       "kind": "major",
       "track": "engine",
-      "status": "planned",
+      "status": "verifying",
       "depends_on": [
         "eng-01"
       ],
@@ -354,11 +371,15 @@
       ],
       "links": [],
       "plan": "Open a duplex WASAPI-shared stream (input unused but open); device selection; block-size/format handling; callback skeleton with allocation guard.",
-      "verify": "",
+      "verify": "Implemented. First audible sound: `cargo run -p rev-app --bin rev-tone` opens a device and plays a tone; verified on LG TV over HDMI/WASAPI at 48 kHz, 211 blocks, 0 xruns, worst callback 68 us. Offline render of the same tone is bit-identical across two runs (R-1402 gate live before there is anything complicated to render). rev-log writes to one forever SQLite file with stderr echo in debug. Control Bar wired: Play sends Start + an audible tone, Stop sends Stop + Locate(0), and the counter now reads the engine's position snapshot through the app-side tempo conversion rather than a stand-in beat clock. 249 workspace tests green; clippy -D warnings clean; wasm32 check on rev-core green. DEVIATIONS from the proposal, both recorded in code: (1) Block carries a flat planar buffer (PlanarMut) rather than a slice of mutable slices, because the latter cannot be built in a callback without allocating - semantics unchanged; (2) cpal has NO duplex callback (input and output are separate streams even on one device), so the single-device rule of §11.3 is necessary but not sufficient and a real live path will need the two callbacks reconciled against one clock. FINDING: the allocation guard had to exempt itself while std::thread::panicking(), or any panic inside an armed scope double-panics and aborts with no message - found by the guard's own unwind test.",
       "notes": [
         {
           "ts": "2026-07-19",
           "text": "Perf ledger starts here — 'day 1 of first real-time work': callback timing stats (mean/worst/xruns) from the telemetry ring recorded into the historical ledger from this item onward, with build-settings/platform/commit metadata."
+        },
+        {
+          "ts": "2026-07-21",
+          "text": "Perf ledger note deferred: callback timing is measured and published in the position snapshot, but entries are not yet harvested into perf/ledger.jsonl. When they are, they must be DEVICE-keyed as well as machine-keyed - callback timing is meaningful on any device, end-to-end latency on shared-mode HDMI is not."
         }
       ],
       "created": "2026-07-19",
@@ -638,7 +659,7 @@
       "title": "Widget kit: Control Bar census widgets",
       "kind": "major",
       "track": "ui",
-      "status": "verifying",
+      "status": "complete",
       "depends_on": [
         "ui-02"
       ],
@@ -785,10 +806,14 @@
         {
           "ts": "2026-07-20",
           "text": "Step 6, assembly: the Control Bar laid out as a strip rather than a test bench. Transport cluster, a divider, the mode toggles, a divider, the record-mode pop-up on the top row; counter, tempo, shuttle and eight locators below. Kind::Rule added for the dividers - it reports nothing and takes no input, and exists so clusters read as clusters without boxing each one. The counter gained a SEPARATOR: '|' for bar|beat|unit, '.' for a decimal tempo, ':' for SMPTE later - one widget serving all three rather than three widgets differing by a punctuation mark. The Control Bar is a window for now; whether it becomes a dockable pane is deferred and costs nothing, because R-928 keeps views placement-agnostic."
+        },
+        {
+          "ts": "2026-07-20",
+          "text": "Closed by the user after running rev-app: 'it looks quite good'. The text-versus-icon label option raised at the same time is NOT part of ui-03 - it is a later idea, unfiled by decision. Wheel-sensitivity highlighting on number fields confirmed on target."
         }
       ],
       "created": "2026-07-19",
-      "completed": null
+      "completed": "2026-07-20"
     },
     {
       "id": "ui-04",
@@ -1008,6 +1033,35 @@
         }
       ],
       "created": "2026-07-20",
+      "completed": null
+    },
+    {
+      "id": "ui-05",
+      "title": "Observation viewer — the scrolling log window",
+      "kind": "major",
+      "track": "ui",
+      "status": "planned",
+      "depends_on": [
+        "eng-03"
+      ],
+      "requirements": [
+        "R-1510"
+      ],
+      "links": [
+        {
+          "doc": "completed/revision_eng01_proposal.md",
+          "anchor": "9.7"
+        }
+      ],
+      "plan": "A live tail of rev-log: auto-scrolling list, filter by creator and severity, drained per UI frame. Scheduled after eng-03 by decision 11 of eng-01, because the user watches logs and there is now volume worth reading. Reads the same forever file the writer thread owns, over a read-only connection (WAL means the reader never blocks the writer).",
+      "verify": "",
+      "notes": [
+        {
+          "ts": "2026-07-21",
+          "text": "Design note from eng-01 §9.6: Trace is a firehose (per-block records at ~100 blocks/second), so the viewer needs per-creator filtering, and the default threshold stays Info. The shuttle already logs at Trace for exactly this reason."
+        }
+      ],
+      "created": "2026-07-21",
       "completed": null
     }
   ]

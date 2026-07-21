@@ -8,6 +8,10 @@
 //! connects it to the engine — so intents are answered locally here, at exactly the
 //! seam that will later carry commands instead.
 
+use rev_app::audio::Audio;
+use rev_engine::driver::Request;
+use rev_engine::{SampleTime, What};
+use rev_log::{Log, creator};
 use rev_ui_kit::{Anchor, Field, Intent, Kind, Kit, RecordMode, Skin, Widget, WidgetId};
 use rev_ui_mech::{
     Event, Frame, Host, KeyCode, Mech, Named, Notice, Point, Reason, Rect, Size, TargetId,
@@ -41,16 +45,24 @@ fn control_bar() -> Widget {
     let mut child = Vec::new();
     let mut x = 14.0;
 
-    // Transport cluster.
-    for (id, label, w) in [(PLAY.0, "Play", 68.0), (STOP.0, "Stop", 68.0)] {
-        child.push(Widget::new(
-            id,
-            Kind::Button,
-            label,
-            Rect::new(x, TOP, w, H),
-        ));
-        x += w + 6.0;
-    }
+    // Transport cluster. **Play latches, Stop does not**: playing is a state you
+    // can be in and see, stopping is an act. A momentary Play would report the
+    // transport's state nowhere, which is the defect class this whole bar keeps
+    // finding (coding standard, "a control must never misreport itself").
+    child.push(Widget::new(
+        PLAY.0,
+        Kind::Toggle { on: false },
+        "Play",
+        Rect::new(x, TOP, 68.0, H),
+    ));
+    x += 68.0 + 6.0;
+    child.push(Widget::new(
+        STOP.0,
+        Kind::Button,
+        "Stop",
+        Rect::new(x, TOP, 68.0, H),
+    ));
+    x += 68.0 + 6.0;
     child.push(Widget::new(
         RECORD.0,
         Kind::Record {
@@ -173,32 +185,51 @@ fn control_bar() -> Widget {
     .with_child(child)
 }
 
+/// Beats per bar and quarter-note tempo, until the tempo map is wired to the
+/// model. **Musical, therefore app-side**: the engine is told samples and knows
+/// nothing of either (R-312).
+const BEAT_PER_BAR: i64 = 4;
+const BPM: f64 = 120.0;
+/// Ticks per quarter note (R-003). The counter's third field is in these.
+const PPQ: i64 = 5040;
+
 struct Bringup {
     main: Option<WindowId>,
     probe: Option<WindowId>,
     kit: Kit,
-    /// Stands in for the transport until ui-04 provides a real one.
+    /// The engine. Its stream opened at startup and never stops; the transport
+    /// is a state inside it, not a device that starts and stops (eng-01 §11.5).
+    audio: Audio,
+    /// What the user asked for. The engine's own answer arrives in the position
+    /// snapshot, and the counter reads *that*, not this.
     playing: bool,
-    /// Beats elapsed on the stand-in transport.
-    beat: i64,
-    /// Seconds at which the stand-in transport last advanced the counter.
-    advanced: f64,
+    /// Last counter reading pushed to the kit, so a still transport does not
+    /// repaint sixty times a second.
+    shown: (i64, i64, i64),
 }
 
-impl Default for Bringup {
-    fn default() -> Bringup {
+impl Bringup {
+    fn new(audio: Audio) -> Bringup {
         Bringup {
             main: None,
             probe: None,
             kit: Kit::new(control_bar(), Skin::default()),
+            audio,
             playing: false,
-            beat: 0,
-            advanced: 0.0,
+            shown: (0, 0, -1),
         }
     }
-}
 
-impl Bringup {
+    /// Sample position to bar | beat | unit, through the tempo the application
+    /// holds. This conversion is the whole of what "the compiler is the last
+    /// place music exists" means in miniature.
+    fn reading(&self, at: SampleTime) -> (i64, i64, i64) {
+        let seconds = at.seconds(self.audio.sample_rate());
+        let tick = (seconds * BPM / 60.0 * PPQ as f64) as i64;
+        let beat = tick / PPQ;
+        (1 + beat / BEAT_PER_BAR, 1 + beat % BEAT_PER_BAR, tick % PPQ)
+    }
+
     /// Push whatever the kit marked dirty into the window that owns it.
     fn flush(&mut self, window: WindowId, mech: &mut Mech) {
         for rect in self.kit.take_dirty() {
@@ -227,7 +258,10 @@ impl Bringup {
             (RecordMode::Armed | RecordMode::Recording, _) => RecordMode::Off,
         };
         self.kit.set_record(RECORD, next);
-        println!("record: {was:?} -> {next:?}");
+        self.audio.log().info(
+            creator::UI_TRANSPORT,
+            format!("record: {was:?} -> {next:?}"),
+        );
     }
 }
 
@@ -261,7 +295,9 @@ impl Host for Bringup {
                 mech.mark_dirty_all(window);
             }
             Notice::ScaleChanged(scale) => {
-                println!("platform scale: {scale}");
+                self.audio
+                    .log()
+                    .info(creator::UI, format!("platform scale: {scale}"));
                 mech.mark_dirty_all(window);
             }
             Notice::FocusChanged(_) => {}
@@ -288,20 +324,30 @@ impl Host for Bringup {
         if self.kit.animate(now) {
             self.flush(window, mech);
         }
-        // A stand-in transport at 120 bpm, so the counter moves and the readout can
-        // be watched doing it. ui-04 replaces this with the engine's clock.
-        if self.playing && now - self.advanced >= 0.5 {
-            self.advanced = now;
-            self.beat += 1;
-            let bar = 1 + self.beat / 4;
-            let beat = 1 + self.beat % 4;
-            self.kit.set_field(COUNTER, 0, bar);
-            self.kit.set_field(COUNTER, 1, beat);
+        // The app half of the seam, every frame: turn what the engine said into
+        // log records, and free what it handed back. Skipping this is how an
+        // observation ring fills up and starts dropping.
+        self.audio.pump();
+
+        // The counter reads the *engine's* clock — the position snapshot, whose
+        // whole reason for being a seqlock rather than a ring is that a stalled
+        // frame must show the newest position rather than lag and then lurch.
+        let seen = self.audio.position();
+        // The engine is the authority on whether it is playing, so Play shows
+        // *its* state rather than the last thing the pointer did. Cheap, and it
+        // is the difference between a control that reports and one that guesses.
+        self.kit.set_toggle(PLAY, seen.running);
+        let reading = self.reading(seen.play);
+        if reading != self.shown {
+            self.shown = reading;
+            self.kit.set_field(COUNTER, 0, reading.0);
+            self.kit.set_field(COUNTER, 1, reading.1);
+            self.kit.set_field(COUNTER, 2, reading.2);
             self.flush(window, mech);
         }
         // Ask to be woken only while something is actually moving. An application
         // that always asks has a busy loop with extra steps.
-        if self.kit.animating() || self.playing {
+        if self.kit.animating() || seen.running {
             mech.wake_after(0.05);
         }
     }
@@ -318,7 +364,10 @@ impl Host for Bringup {
             self.sync_focus(window, mech);
             self.flush(window, mech);
             if let Some((id, Intent::FieldChanged(field, value))) = out {
-                println!("{id:?} field {field} = {value}");
+                let name = self.kit.label(id).unwrap_or("field").to_string();
+                self.audio
+                    .log()
+                    .info(creator::UI, format!("{name} field {field} = {value}"));
             }
             return;
         }
@@ -332,12 +381,18 @@ impl Host for Bringup {
                 KeyCode::Char('=') | KeyCode::Char('+') => {
                     let next = mech.ui_scale() + 0.25;
                     mech.set_ui_scale(next);
-                    println!("interface scale: {:.2}", mech.ui_scale());
+                    let scale = mech.ui_scale();
+                    self.audio
+                        .log()
+                        .info(creator::UI, format!("interface scale: {scale:.2}"));
                 }
                 KeyCode::Char('-') | KeyCode::Char('_') => {
                     let next = mech.ui_scale() - 0.25;
                     mech.set_ui_scale(next);
-                    println!("interface scale: {:.2}", mech.ui_scale());
+                    let scale = mech.ui_scale();
+                    self.audio
+                        .log()
+                        .info(creator::UI, format!("interface scale: {scale:.2}"));
                 }
                 KeyCode::Char('0') => mech.set_ui_scale(1.0),
                 KeyCode::Char('n') => match self.probe.take() {
@@ -378,17 +433,33 @@ impl Host for Bringup {
                 } else if !on {
                     self.kit.set_record(RECORD, RecordMode::Off);
                 }
-                println!("play: {on}");
+                // Until there is material to play, playback is audible as a
+                // tone — so that "the transport is running" is something you can
+                // hear, not only something the counter claims.
+                if on {
+                    self.audio.send(What::Start);
+                    self.audio.send(What::ToneOn {
+                        hz: 220.0,
+                        gain: 0.2,
+                    });
+                } else {
+                    self.audio.send(What::ToneOff);
+                    self.audio.send(What::Stop);
+                }
+                self.audio
+                    .log()
+                    .info(creator::UI_TRANSPORT, format!("play: {on}"));
             }
             Intent::Released if id == STOP => {
                 self.playing = false;
-                self.beat = 0;
                 self.kit.set_toggle(PLAY, false);
                 self.kit.set_record(RECORD, RecordMode::Off);
-                self.kit.set_field(COUNTER, 0, 1);
-                self.kit.set_field(COUNTER, 1, 1);
-                self.kit.set_field(COUNTER, 2, 0);
-                println!("stop");
+                // Stop returns to the start, which is the transport's decision
+                // and not the engine's: the engine is told where to be.
+                self.audio.send(What::ToneOff);
+                self.audio.send(What::Stop);
+                self.audio.send(What::Locate(SampleTime(0)));
+                self.audio.log().info(creator::UI_TRANSPORT, "stop");
             }
             Intent::RecordPressed(was) => self.record_pressed(was),
             // An empty locator stores the counter's current reading — set on the
@@ -396,29 +467,62 @@ impl Host for Bringup {
             Intent::Store(n) => {
                 let at = self.kit.counter_text(COUNTER).unwrap_or_default();
                 self.kit.set_locator(id, Some(at.clone()));
-                println!("locator {n} <- {at}");
+                self.audio
+                    .log()
+                    .info(creator::UI_TRANSPORT, format!("locator {n} <- {at}"));
             }
             // Shift-click clears: a locator you cannot empty is a locator you get
             // exactly one chance to place.
             Intent::Recalled(n) if shifted => {
                 self.kit.clear_locator(id);
-                println!("locator {n} cleared");
+                self.audio
+                    .log()
+                    .info(creator::UI_TRANSPORT, format!("locator {n} cleared"));
             }
             Intent::Recalled(n) => {
                 let at = self.kit.locator_text(id).unwrap_or_default();
-                println!("locator {n} recalled: {at}");
+                self.audio
+                    .log()
+                    .info(creator::UI_TRANSPORT, format!("locator {n} recalled: {at}"));
             }
-            Intent::Toggled(on) => println!("{id:?} toggled {on}"),
+            // Named, not numbered: a record that says `WidgetId(3)` names
+            // nothing a person recognizes, and someone reads this log.
+            Intent::Toggled(on) => {
+                let name = self.kit.label(id).unwrap_or("control").to_string();
+                self.audio.log().info(
+                    creator::UI_TRANSPORT,
+                    format!("{name}: {}", if on { "on" } else { "off" }),
+                );
+            }
             Intent::Cancelled => {}
-            Intent::FieldChanged(field, value) => println!("counter field {field} = {value}"),
-            Intent::ValueChanged(v) => println!("{id:?} = {v:.3}"),
+            Intent::FieldChanged(field, value) => self
+                .audio
+                .log()
+                .info(creator::UI, format!("counter field {field} = {value}")),
+            Intent::ValueChanged(v) => {
+                let name = self.kit.label(id).unwrap_or("control").to_string();
+                self.audio
+                    .log()
+                    .info(creator::UI, format!("{name} = {v:.3}"));
+            }
             // Where the transport would scrub; ui-04 makes it real. Zero is the
             // spring returning home, which is news too — it means stop scrubbing.
-            Intent::Shuttled(v) if v != 0.0 => println!("scrub {v:+.2}"),
-            Intent::Shuttled(_) => println!("scrub end"),
-            Intent::Chose(n) => println!("record mode -> {n}"),
-            // Confirm the click landed, so the console agrees with the screen.
-            Intent::Pressed if id == COUNTER => println!("counter: editing a field"),
+            //
+            // Trace, not Info: a shuttle emits a value per pointer move, and at
+            // Info it would bury everything else in the log within seconds.
+            Intent::Shuttled(v) if v != 0.0 => self
+                .audio
+                .log()
+                .trace(creator::UI_TRANSPORT, format!("scrub {v:+.2}")),
+            Intent::Shuttled(_) => self.audio.log().info(creator::UI_TRANSPORT, "scrub end"),
+            Intent::Chose(n) => self
+                .audio
+                .log()
+                .info(creator::UI_TRANSPORT, format!("record mode -> {n}")),
+            Intent::Pressed if id == COUNTER => self
+                .audio
+                .log()
+                .info(creator::UI, "counter: editing a field"),
             _ => {}
         }
         self.flush(window, mech);
@@ -449,7 +553,21 @@ impl Host for Bringup {
 }
 
 fn main() -> Result<(), rev_ui_mech::MechError> {
-    rev_ui_mech::run(Bringup::default())
+    // Running without a log is degraded, never fatal.
+    let log = match Log::open_default() {
+        Ok(log) => log,
+        Err(error) => {
+            eprintln!("rev-app: no log ({error}); continuing without one");
+            Log::hush()
+        }
+    };
+    log.info(creator::APP, "Revision starting");
+
+    // The stream opens now and stays open for the life of the application:
+    // nothing gates the start (R-1512) and the application is playable before
+    // anything is opened (R-1513).
+    let audio = Audio::open(log, &Request::default());
+    rev_ui_mech::run(Bringup::new(audio))
 }
 
 #[cfg(test)]

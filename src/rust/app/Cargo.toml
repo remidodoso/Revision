@@ -9,3 +9,17 @@ publish = false
 [dependencies]
 rev-ui-mech = { path = "../ui_mech" }
 rev-ui-kit = { path = "../ui_kit" }
+rev-engine = { path = "../engine" }
+rev-log = { path = "../log" }
+
+# The windowed application.
+[[bin]]
+name = "rev-app"
+path = "src/main.rs"
+
+# The headless first sound: a device, a tone, and what it did. Kept as its own
+# binary so that "is there a device problem?" and "is there a wiring problem?"
+# are separate questions (eng-03).
+[[bin]]
+name = "rev-tone"
+path = "src/bin/tone.rs"

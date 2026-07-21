@@ -1,6 +1,6 @@
 {
   "meta": {
-    "updated": "2026-07-19",
+    "updated": "2026-07-21",
     "granularity": "directory/module; file-level only where a file merits individual comment",
     "desc_style": "retrieval-oriented: keyword-bearing (key types, subsystem vocabulary, R-numbers), <=140 chars",
     "checker": "cargo xtask filemap - both directions, failures not warnings; runs in CI's lint job",
@@ -79,7 +79,7 @@
     },
     {
       "path": "src/rust/engine/",
-      "desc": "rev-engine: RT audio - cpal duplex (R-301), sample clock (R-302), scheduler, graph nodes (R-704), voice, zero-alloc callback, telemetry ring",
+      "desc": "rev-engine: the RT audio engine. Engine::process, the four-channel seam, cpal and offline drivers, allocation guard (eng-01)",
       "layer": "engine",
       "generated": false
     },
@@ -128,6 +128,71 @@
     {
       "path": "testdata/",
       "desc": "golden masters: ui/ PNG screenshots compared bit-identically; .f32 audio + JSON sidecars (sample_rate, seed, provenance) from dsp-02",
+      "generated": false
+    },
+    {
+      "path": "src/rust/log/",
+      "desc": "rev-log: the observation log. Log handle, four levels, dotted creators, bounded channel to one writer thread; rusqlite only (eng-01 §9)",
+      "generated": false
+    },
+    {
+      "path": "src/rust/log/src/schema.sql",
+      "desc": "observation log DDL: session + entry (creator, level, text, detail JSON, keep). One forever file, WAL, synchronous=NORMAL, pruned by size",
+      "generated": false
+    },
+    {
+      "path": "src/rust/log/src/sink.rs",
+      "desc": "log writer thread: batched inserts, size-capped pruning by used pages (page_count - freelist), stderr echo, drop-and-count on a full channel",
+      "generated": false
+    },
+    {
+      "path": "src/rust/log/src/place.rs",
+      "desc": "OS application-data directory per platform, dependency-free; default log path observation.revlog",
+      "generated": false
+    },
+    {
+      "path": "src/rust/engine/src/port.rs",
+      "desc": "the seam: rtrb rings + PositionCell. EngineSession (app) and RtPort (RT); commands refuse, observations drop-and-count, returns never drop",
+      "generated": false
+    },
+    {
+      "path": "src/rust/engine/src/position.rs",
+      "desc": "Position + PositionCell: the seqlock the counter reads. Latest-wins, wait-free writer; carries clock correlation and latency terms",
+      "generated": false
+    },
+    {
+      "path": "src/rust/engine/src/command.rs",
+      "desc": "Command/What: every command time-stamped, frequencies never note numbers (R-312). ChunkHandle + Garbage; the RT thread never frees",
+      "generated": false
+    },
+    {
+      "path": "src/rust/engine/src/obs.rs",
+      "desc": "engine observations: POD code + 3 args on the RT side, rendered to prose app-side. Creator, Level, Code catalogue",
+      "generated": false
+    },
+    {
+      "path": "src/rust/engine/src/guard.rs",
+      "desc": "allocation guard: global allocator wrapper + per-thread RT flag, debug/test only; exempt while panicking so unwinding does not double-panic",
+      "generated": false
+    },
+    {
+      "path": "src/rust/engine/src/driver/device.rs",
+      "desc": "cpal driver: device selection with REVISION_AUDIO_DEVICE override, OpenReport logged at open, stream opens once and never stops",
+      "generated": false
+    },
+    {
+      "path": "src/rust/engine/src/driver/offline.rs",
+      "desc": "offline driver: same core, no device. The render-twice bit-identity path (R-1402), how CI runs the RT discipline, f32 WAV writer",
+      "generated": false
+    },
+    {
+      "path": "src/rust/app/src/audio.rs",
+      "desc": "app side of the seam: holds EngineSession + Device, pumps observations into rev-log and frees returned garbage each frame",
+      "generated": false
+    },
+    {
+      "path": "src/rust/app/src/bin/tone.rs",
+      "desc": "rev-tone: headless first sound. --list, --device, --hz, --seconds, --render FILE.wav (renders twice and compares)",
       "generated": false
     }
   ]

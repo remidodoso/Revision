@@ -71,6 +71,22 @@ Tags: [P1] initial scope · [P2] subsequent · [Later] undetermined future ·
 - R-307 [P1]. The system shall report the actual end-to-end latency of live paths.
 - R-308 [P1]. The system shall play back audio material within arrangements.
 - R-309 [P2]. The system shall record audio input, aligned via the latency model.
+- R-310 [Arch]. The latency model (R-303) compensates only delay the system itself
+  introduces: conversion, device buffers, declared processing latency, and transport
+  of events to their destination. Delay inherent to an instrument's own response —
+  external hardware or hosted plugin — is musical content, not error, and is neither
+  measured nor compensated. Where a musician wants such timing adjusted, the
+  adjustment is an ordinary edit to the recorded material, not an automatic
+  correction.
+- R-311 [Arch]. The live-path budget (R-304) is 10 ms round trip, input to output,
+  excluding the instrument's own response. Processing whose declared latency would
+  carry a live path beyond the budget is excluded per R-305; the allowance is
+  therefore what remains after device buffers, not a separate threshold.
+- R-312 [Arch]. Below the engine boundary there is only physics: the engine's
+  vocabulary is samples, frequencies, channels, gains, and opaque handles. Note
+  numbers, ticks, tunings, tempo, and phrases are resolved above it. (Makes R-002's
+  "12-ET has no privileged status" a property of the architecture rather than a
+  discipline; the boundary R-003 names.)
 
 ## 5. Sequencing model
 
@@ -262,6 +278,10 @@ only). *Degree*: a position within a scale — the scale-relative, user-facing t
 - R-622 [Later]. Per-device patch editor panels generated from device profiles.
 - R-623 [P2]. Patch auditioning: step through a device's patches by name during
   playback.
+- R-624 [P2]. An external instrument is a named pairing of a MIDI destination (R-604)
+  and an audio return. A track addresses it as an ordinary instrument target (R-712).
+  Its own response time is not compensated (R-310); audio it produces is not
+  re-derivable from project state, which is what R-815's rolling capture exists for.
 
 ## 8. Instruments & audio processing
 

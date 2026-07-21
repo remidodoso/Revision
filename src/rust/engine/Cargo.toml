@@ -5,3 +5,11 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 publish = false
+
+# eng-01 §14: cpal and rtrb, and nothing else. Not rev-core (an engine that
+# speaks only physics has nothing to import from a model of music, R-312), not
+# rev-store, not rev-log.
+[dependencies]
+cpal.workspace = true
+rtrb.workspace = true
+thiserror.workspace = true
