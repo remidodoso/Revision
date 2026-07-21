@@ -100,6 +100,21 @@ impl Device {
     /// Open a stream and start it. The engine runs from this moment until the
     /// `Device` is dropped, whatever the transport is doing.
     pub fn open(request: &Request, port: RtPort) -> Result<Device, EngineError> {
+        Device::open_with(request, port, |_| None)
+    }
+
+    /// Open, building the instrument once the device's format is known.
+    ///
+    /// The closure exists to resolve an ordering problem: the engine lives
+    /// inside the callback and cannot be reached afterwards, but an instrument
+    /// needs the sample rate, which only the device can supply. It runs on the
+    /// app thread before the stream starts, which is where a voice pool's
+    /// allocation belongs.
+    pub fn open_with(
+        request: &Request,
+        port: RtPort,
+        instrument: impl FnOnce(Format) -> Option<crate::instrument::Instrument>,
+    ) -> Result<Device, EngineError> {
         let host = cpal::default_host();
         let wanted = request
             .name
@@ -145,6 +160,9 @@ impl Device {
         };
 
         let mut engine = Engine::new(format, port);
+        if let Some(built) = instrument(format) {
+            engine.set_instrument(built);
+        }
         // The only latency the engine can honestly report is the device's own
         // (R-310). Not measured here — cpal does not tell us — so it is left at
         // zero rather than guessed at.

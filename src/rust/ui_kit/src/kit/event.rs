@@ -11,9 +11,270 @@
 
 use rev_ui_mech::{Event, KeyCode, Named, Point, PointerKind, TargetId};
 
-use super::{Field, Intent, Kind, Kit, RecordMode, WidgetId, feel, field_at};
+use super::{Field, Intent, Kind, Kit, PaneDrag, PaneGrab, RecordMode, WidgetId, feel, field_at};
+use crate::pane::{Axis, Pane, Part, ZOOM_STEP};
 
 impl Kit {
+    fn pane_of(&self, id: WidgetId) -> Option<Pane> {
+        match self.find(id)?.kind {
+            Kind::Pane { pane } => Some(pane),
+            _ => None,
+        }
+    }
+
+    fn with_pane<T>(&mut self, id: WidgetId, f: impl FnOnce(&mut Pane) -> T) -> Option<T> {
+        let widget = self.find_mut(id)?;
+        let Kind::Pane { pane } = &mut widget.kind else {
+            return None;
+        };
+        Some(f(pane))
+    }
+
+    /// The centre of a pane's interior — the anchor for a zoom that did not come
+    /// from the pointer. A roll would anchor its playhead here instead; the kit
+    /// has no idea what a playhead is, so the centre is the honest default
+    /// (ui-07 §6.2).
+    fn pane_centre(&self, id: WidgetId) -> Point {
+        let Some(rect) = self.rect(id) else {
+            return Point::new(0.0, 0.0);
+        };
+        let inner = self.pane_of(id).map(|p| p.interior(rect)).unwrap_or(rect);
+        Point::new(inner.x + inner.w / 2.0, inner.y + inner.h / 2.0)
+    }
+
+    /// Press somewhere in a pane's furniture. `None` means the press was in the
+    /// interior, which is the application's business, not ours.
+    fn pane_press(&mut self, id: WidgetId, at: Point) -> Option<(WidgetId, Intent)> {
+        let rect = self.rect(id)?;
+        let pane = self.pane_of(id)?;
+        for axis in [Axis::Horizontal, Axis::Vertical] {
+            let Some(gutter) = pane.gutter(rect, axis) else {
+                continue;
+            };
+            if !gutter.contains(at) {
+                continue;
+            }
+            // The zoom cluster, from the far end inwards.
+            if let Some((minus, plus)) = pane.zoom_button(rect, axis) {
+                for (button, factor) in [(minus, 1.0 / ZOOM_STEP), (plus, ZOOM_STEP)] {
+                    if button.contains(at) {
+                        // A magnifier's plus means *more magnification*, which is
+                        // fewer content units per pixel — hence the reciprocal.
+                        let anchor = self.pane_centre(id);
+                        let scale = self.with_pane(id, |p| {
+                            p.zoom(rect, axis, 1.0 / factor, anchor);
+                            p.scale
+                        })?;
+                        self.mark(id);
+                        return Some((id, Intent::Zoomed(scale)));
+                    }
+                }
+            }
+            if let Some(slider) = pane.zoom_slider(rect, axis)
+                && slider.contains(at)
+            {
+                self.touch.pane = Some(PaneDrag {
+                    id,
+                    axis,
+                    what: PaneGrab::ZoomSlider,
+                });
+                return self.pane_zoom_drag(id, axis, at);
+            }
+            // The track: the thumb is a drag, the gray area is a page.
+            if let Some(thumb) = pane.thumb(rect, axis) {
+                let origin = match axis {
+                    Axis::Horizontal => pane.offset.x,
+                    Axis::Vertical => pane.offset.y,
+                };
+                if thumb.contains(at) {
+                    let grab = match axis {
+                        Axis::Horizontal => at.x - thumb.x,
+                        Axis::Vertical => at.y - thumb.y,
+                    };
+                    self.touch.pane = Some(PaneDrag {
+                        id,
+                        axis,
+                        what: PaneGrab::Thumb { grab, origin },
+                    });
+                    return Some((id, Intent::Pressed));
+                }
+                // Clicking the gray area advances a windowful **less one unit of
+                // overlap**, which is what keeps a reference point across the
+                // jump (inventory §3a, p. 164).
+                let before = match axis {
+                    Axis::Horizontal => at.x < thumb.x,
+                    Axis::Vertical => at.y < thumb.y,
+                };
+                let unit = 16.0 * pane.scale.on(axis);
+                let page = pane.page(rect, axis, unit) * if before { -1.0 } else { 1.0 };
+                let offset = self.with_pane(id, |p| {
+                    match axis {
+                        Axis::Horizontal => p.scroll_by(rect, page, 0.0),
+                        Axis::Vertical => p.scroll_by(rect, 0.0, page),
+                    }
+                    p.offset
+                })?;
+                self.mark(id);
+                return Some((id, Intent::Scrolled(offset)));
+            }
+            // An inactive bar: present, outlined, and inert.
+            return Some((id, Intent::Pressed));
+        }
+        None
+    }
+
+    /// Continue a thumb drag. **The snap-back is an ordinary offset update**,
+    /// not a cancel: stray far enough from the bar and the offset returns to
+    /// where the drag began; come back and it resumes (ui-07 §5.5).
+    fn pane_thumb_drag(
+        &mut self,
+        id: WidgetId,
+        axis: Axis,
+        at: Point,
+        grab: f32,
+        origin: f32,
+    ) -> Option<(WidgetId, Intent)> {
+        let rect = self.rect(id)?;
+        let pane = self.pane_of(id)?;
+        let gutter = pane.gutter(rect, axis)?;
+        // Distance out of the bar is measured across it, never along it: a drag
+        // that runs off the end of the track is still a drag.
+        let strayed = match axis {
+            Axis::Horizontal => (at.y - gutter.y).min(gutter.bottom() - at.y),
+            Axis::Vertical => (at.x - gutter.x).min(gutter.right() - at.x),
+        };
+        let value = if strayed < -pane.metric.drag_tolerance {
+            origin
+        } else {
+            pane.offset_for_thumb(rect, axis, at, grab)
+        };
+        let offset = self.with_pane(id, |p| {
+            match axis {
+                Axis::Horizontal => p.offset.x = value,
+                Axis::Vertical => p.offset.y = value,
+            }
+            p.clamp(rect);
+            p.offset
+        })?;
+        self.mark(id);
+        Some((id, Intent::Scrolled(offset)))
+    }
+
+    fn pane_zoom_drag(
+        &mut self,
+        id: WidgetId,
+        axis: Axis,
+        at: Point,
+    ) -> Option<(WidgetId, Intent)> {
+        let rect = self.rect(id)?;
+        let pane = self.pane_of(id)?;
+        let slider = pane.zoom_slider(rect, axis)?;
+        let position = match axis {
+            Axis::Horizontal => (at.x - slider.x) / slider.w.max(1.0),
+            Axis::Vertical => (at.y - slider.y) / slider.h.max(1.0),
+        };
+        let anchor = self.pane_centre(id);
+        let scale = self.with_pane(id, |p| {
+            p.set_zoom_position(rect, axis, position, anchor);
+            p.scale
+        })?;
+        self.mark(id);
+        Some((id, Intent::Zoomed(scale)))
+    }
+
+    /// The wheel over a pane.
+    ///
+    /// **What the pointer is over decides what the wheel does** — the kit's own
+    /// rule, already stated for counter fields ("the wheel aims where you are
+    /// looking"), reaching the pane:
+    ///
+    /// - over a **zoom cluster**: zoom *that cluster's axis*, no modifier
+    ///   needed, anchored where its buttons anchor. The control names the axis;
+    ///   the wheel only supplies the amount, so rolling over the horizontal
+    ///   cluster zooms time even though the wheel is the vertical input.
+    /// - over a **scroll bar**: scroll *that bar's axis*, for the same reason.
+    /// - over the **interior**: scroll, or zoom with the modifier, anchored at
+    ///   the pointer — which is what makes that one a lens.
+    ///
+    /// The modifier is `ctrl` for now and **not settled**: Cubase and Resolve
+    /// disagree, and picking between them is a decision nobody has made yet.
+    fn pane_wheel(
+        &mut self,
+        id: WidgetId,
+        at: Point,
+        dx: f32,
+        dy: f32,
+        zoom: bool,
+    ) -> Option<(WidgetId, Intent)> {
+        let rect = self.rect(id)?;
+        let pane = self.pane_of(id)?;
+        let notch = if dx.abs() > dy.abs() { dx } else { dy };
+        if notch == 0.0 {
+            return None;
+        }
+
+        match pane.part_at(rect, at) {
+            Some(part @ (Part::ZoomIn(_) | Part::ZoomOut(_) | Part::ZoomSlider(_))) => {
+                let anchor = self.pane_centre(id);
+                self.pane_zoom(id, part.axis(), notch, anchor)
+            }
+            Some(part @ (Part::Thumb(_) | Part::Track(_))) => {
+                let axis = part.axis();
+                let step = -notch * pane.scale.on(axis);
+                let offset = self.with_pane(id, |p| {
+                    match axis {
+                        Axis::Horizontal => p.scroll_by(rect, step, 0.0),
+                        Axis::Vertical => p.scroll_by(rect, 0.0, step),
+                    }
+                    p.offset
+                })?;
+                self.mark(id);
+                Some((id, Intent::Scrolled(offset)))
+            }
+            None if zoom => {
+                // The wheel zooms whichever axis it would otherwise have
+                // scrolled: the wheel proper is vertical, the tilt horizontal.
+                let axis = if dx.abs() > dy.abs() {
+                    Axis::Horizontal
+                } else {
+                    Axis::Vertical
+                };
+                self.pane_zoom(id, axis, notch, at)
+            }
+            None => {
+                let step = (dx * pane.scale.x, -dy * pane.scale.y);
+                let offset = self.with_pane(id, |p| {
+                    p.scroll_by(rect, step.0, step.1);
+                    p.offset
+                })?;
+                self.mark(id);
+                Some((id, Intent::Scrolled(offset)))
+            }
+        }
+    }
+
+    /// One wheel notch of zoom on an axis, about an anchor.
+    fn pane_zoom(
+        &mut self,
+        id: WidgetId,
+        axis: Axis,
+        notch: f32,
+        anchor: Point,
+    ) -> Option<(WidgetId, Intent)> {
+        let rect = self.rect(id)?;
+        let factor = if notch > 0.0 {
+            1.0 / ZOOM_STEP
+        } else {
+            ZOOM_STEP
+        };
+        let scale = self.with_pane(id, |p| {
+            p.zoom(rect, axis, factor, anchor);
+            p.scale
+        })?;
+        self.mark(id);
+        Some((id, Intent::Zoomed(scale)))
+    }
+
     /// Move a slider's cap to where the pointer is, snapping near a detent.
     fn slide(&mut self, id: WidgetId, at: Point) -> Option<(WidgetId, Intent)> {
         let rect = self.rect(id)?;
@@ -246,6 +507,11 @@ impl Kit {
             // worth having in front of a synthesizer.
             PointerKind::Wheel { dx, dy } => {
                 let target = target?;
+                if matches!(self.find(target).map(|w| &w.kind), Some(Kind::Pane { .. })) {
+                    // ctrl is the zoom modifier. The exhibits' wheel-coarse /
+                    // tilt-fine split still holds underneath it (ui-07 §7).
+                    return self.pane_wheel(target, p.at, dx, dy, p.modifier.ctrl);
+                }
                 let fine = dx.abs() > dy.abs();
                 let notch = if fine { dx } else { dy };
                 let step = if fine { feel::FINE } else { feel::COARSE };
@@ -360,6 +626,14 @@ impl Kit {
                     Some(Kind::Shuttle { position }) => {
                         self.touch.shuttle = Some((p.at.x, *position));
                     }
+                    Some(Kind::Pane { .. }) => {
+                        if let Some(out) = self.pane_press(id, p.at) {
+                            return Some(out);
+                        }
+                        // The press landed in the interior. The kit has nothing
+                        // to say about it; the application does.
+                        return Some((id, Intent::Pressed));
+                    }
                     // A slider jumps to the pointer and tracks from there — the cap
                     // goes where you pressed, which is what "absolute" means and
                     // what every hardware fader does not do but every screen one
@@ -375,6 +649,29 @@ impl Kit {
                 Some((id, Intent::Pressed))
             }
             PointerKind::Move => {
+                // Which piece of a pane's furniture is under the pointer. A
+                // control lights up because it is about to do something;
+                // content is not a control, so the interior lights nothing.
+                let part = target
+                    .and_then(|id| Some((id, self.rect(id)?, self.pane_of(id)?)))
+                    .and_then(|(id, rect, pane)| Some((id, pane.part_at(rect, p.at)?)));
+                if part != self.touch.pane_part {
+                    if let Some((was, _)) = self.touch.pane_part {
+                        self.mark(was);
+                    }
+                    self.touch.pane_part = part;
+                    if let Some((now, _)) = part {
+                        self.mark(now);
+                    }
+                }
+                if let Some(drag) = self.touch.pane {
+                    return match drag.what {
+                        PaneGrab::Thumb { grab, origin } => {
+                            self.pane_thumb_drag(drag.id, drag.axis, p.at, grab, origin)
+                        }
+                        PaneGrab::ZoomSlider => self.pane_zoom_drag(drag.id, drag.axis, p.at),
+                    };
+                }
                 // A pressed control tracks the pointer (Apple HIG 1992, ch. 7):
                 // it stops showing as pressed when the pointer leaves it, and shows
                 // again on return, so the cancel is visible before it happens.
@@ -455,6 +752,14 @@ impl Kit {
                 Some((pressed, Intent::FieldChanged(index, clamped)))
             }
             PointerKind::Up => {
+                // A pane drag ends by simply ending. Nothing is committed on
+                // release and nothing is reverted: if the pointer strayed out of
+                // the bar, the offset went back to where the drag began while it
+                // was happening, and it is already correct (ui-07 §5.5).
+                if self.touch.pane.take().is_some() {
+                    self.touch.press = None;
+                    return None;
+                }
                 // Releasing over an item chooses it — the drag-through gesture.
                 // Releasing anywhere else leaves the menu open, so a plain click on
                 // the button opens it and stays open.

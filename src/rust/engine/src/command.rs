@@ -66,22 +66,57 @@ pub enum What {
     SetTraceLevel(crate::obs::Level),
 }
 
+/// One compiled note. Self-contained: everything the engine needs, nothing it
+/// must look up (eng-06 §5).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Note {
+    /// When it starts, in **play-position** samples — not session-clock samples,
+    /// so a loop needs no recompilation (eng-06 §6.3).
+    pub at: SampleTime,
+    /// How long it sounds, in samples. **Bounded, always** (R-402a): there is no
+    /// sentinel for "forever", because a continuously sounding source is
+    /// instrument state, not a note. At 48 kHz a `u32` reaches about 24 hours.
+    ///
+    /// Carried with the note rather than sent as a separate note-off. That is a
+    /// modelling claim, not an optimization — the model already says a note has a
+    /// duration, and paired on/off is a wire encoding. It also means a chunk
+    /// boundary, a loop wrap, or a superseded schedule cannot orphan anything,
+    /// because nothing was waiting.
+    ///
+    /// It is articulation *input*, not a hard gate: a pedal or a long release may
+    /// sound past it.
+    pub dur: u32,
+    /// Frequency, resolved through the tuning at compile time (R-312). The engine
+    /// cannot mis-tune what it was never told.
+    pub hz: f32,
+    /// 0..1, from the model's 16-bit velocity (R-402).
+    pub level: f32,
+    /// Which track it came from — a routing key, opaque to the engine.
+    pub voice: u16,
+    /// Reserved, and named rather than anonymous so that filling it later does
+    /// not change the struct's size.
+    pub reserved: u16,
+}
+
 /// A compiled schedule chunk.
 ///
-/// **The envelope is settled; the payload is eng-06's.** That deferral is
-/// deliberate: the payload is the compiler's contract with `v_realized`, and
-/// specifying it before `core-03` finishes would mean honouring a guess long
-/// after it stopped being right (eng-01 §8).
-///
-/// What binds from today is the *ownership discipline*: allocated app-side,
-/// immutable once handed over, and returned over the garbage ring — the real-time
-/// thread never frees it.
+/// The *envelope* was settled at eng-01 §8 and the payload deferred to eng-06,
+/// on the grounds that it is the compiler's contract with `v_realized` and that
+/// specifying it before `core-03` existed would mean honouring a guess. Both
+/// halves are now here, and the ownership discipline never changed: allocated
+/// app-side, immutable once handed over, returned over the garbage ring — the
+/// real-time thread never frees it.
 #[derive(Debug)]
 pub struct Chunk {
-    /// The window this chunk covers. Events outside it are not its business.
+    /// The window this chunk covers, in play-position samples.
     pub from: SampleTime,
     pub to: SampleTime,
-    // eng-06: the sample-stamped events. Deliberately absent.
+    /// **Ascending by `at`.** The engine dispatches by scanning forward, so
+    /// sorted order is a precondition rather than a convenience.
+    ///
+    /// A note may extend past `to`: durations are not truncated by a window
+    /// (R-405a), and carrying the duration is what makes that expressible.
+    pub note: Vec<Note>,
 }
 
 /// An owning pointer to a [`Chunk`], sized to cross a ring.

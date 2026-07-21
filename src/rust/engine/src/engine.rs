@@ -14,7 +14,9 @@ use std::time::Instant;
 
 use crate::command::{Command, Garbage, What};
 use crate::format::{Block, Format};
+use crate::graph::QUANTUM;
 use crate::guard::RtScope;
+use crate::instrument::Instrument;
 use crate::obs::{Code, Creator, Level, Obs};
 use crate::port::RtPort;
 use crate::position::Position;
@@ -52,6 +54,14 @@ pub struct Engine {
     worst_us: u32,
     trace: Level,
     peak: [f32; 2],
+    /// The instrument the compiled schedule plays through. Built app-side —
+    /// every allocation a voice pool needs happens there — and handed over
+    /// before the stream starts.
+    instrument: Option<Instrument>,
+    /// How far into the current chunk's notes we have dispatched. Advances
+    /// monotonically with play position and is re-seeded whenever the position
+    /// moves discontinuously: a locate, a loop wrap, or a new chunk.
+    cursor: usize,
     /// Device buffer latency in frames, input and output. **Ours only** — never
     /// an instrument's own response (R-310).
     latency: (u32, u32),
@@ -81,6 +91,8 @@ impl Engine {
             worst_us: 0,
             trace: Level::Info,
             peak: [0.0; 2],
+            instrument: None,
+            cursor: 0,
             latency: (0, 0),
             origin: Instant::now(),
         }
@@ -88,6 +100,16 @@ impl Engine {
 
     pub fn format(&self) -> Format {
         self.format
+    }
+
+    /// Hand the engine its instrument. **App thread, before the stream runs** —
+    /// building a voice pool allocates, and the callback may not.
+    pub fn set_instrument(&mut self, instrument: Instrument) {
+        self.instrument = Some(instrument);
+    }
+
+    pub fn instrument(&self) -> Option<&Instrument> {
+        self.instrument.as_ref()
     }
 
     /// Record the device's own latency, in frames, so R-303's model has
@@ -111,12 +133,20 @@ impl Engine {
         block.out.silence();
 
         self.take_commands(frame);
-        self.render(block, frame);
 
-        self.at = self.at + frame as u64;
-        if self.running {
-            self.play = self.advance_play(frame as u64);
+        // Render in quanta whose boundaries fall at multiples of QUANTUM from
+        // the **session start**, not from the block start (eng-02 §4a). The
+        // device's block size then cannot change what anything sounds like.
+        let mut done = 0usize;
+        while done < frame {
+            let into_quantum = ((self.at.0 + done as u64) % QUANTUM as u64) as usize;
+            let span = (QUANTUM - into_quantum).min(frame - done);
+            self.render_quantum(block, done, span, into_quantum);
+            done += span;
         }
+
+        self.meter(block);
+        self.at = self.at + frame as u64;
         self.block += 1;
 
         self.retry_return();
@@ -205,6 +235,7 @@ impl Engine {
             }
             What::Locate(to) => {
                 self.play = to;
+                self.reseek();
                 self.port.observe(
                     Obs::new(Creator::Transport, Level::Info, Code::Locate)
                         .at(self.at)
@@ -237,6 +268,7 @@ impl Engine {
                     (chunk.from, chunk.to)
                 };
                 self.replace_chunk(Some(handle));
+                self.reseek();
                 self.port.observe(
                     Obs::new(Creator::Sched, Level::Info, Code::ChunkTaken)
                         .at(self.at)
@@ -312,23 +344,101 @@ impl Engine {
             // repeat samples.
             let length = self.loop_to - self.loop_from;
             if length > 0 {
+                // The position moved backwards, so the note cursor is stale.
+                // Handled by the caller, which knows a wrap happened.
                 return SampleTime(self.loop_from.0 + (next - self.loop_to) % length);
             }
         }
         next
     }
 
-    fn render(&mut self, block: &mut Block<'_>, frame: usize) {
+    /// One quantum (or the part of one that fits in what is left of the block).
+    fn render_quantum(&mut self, block: &mut Block<'_>, at: usize, span: usize, phase: usize) {
+        // The test tone first, so that copying it across channels cannot pick up
+        // anything the instrument has added. Both write into a region the block
+        // silenced once, so both accumulate rather than assign.
         if !self.tone.is_silent() {
-            // Channel 0 carries the tone; every other channel copies it.
-            // `silence()` has already zeroed every plane, so the copy is a
-            // choice about *this* voice — the guarantee that we never leave a
-            // channel unwritten (eng-01 §11.4) is already kept.
-            self.tone.render(block.out.segment(0, 0, frame));
-            for channel in 1..block.out.channel() {
-                block.out.copy_plane(0, channel);
+            let channel = block.out.channel();
+            let (out, stride) = block.out.raw_from(at);
+            self.tone.render(&mut out[..span]);
+            for c in 1..channel {
+                for frame in 0..span {
+                    out[c * stride + frame] += out[frame];
+                }
             }
         }
+        if self.running {
+            self.dispatch(span);
+        }
+        if let Some(instrument) = &mut self.instrument {
+            let (out, stride) = block.out.raw_from(at);
+            instrument.render(
+                crate::voice::Span {
+                    phase,
+                    frames: span,
+                    stride,
+                },
+                out,
+            );
+        }
+        if self.running {
+            let next = self.advance_play(span as u64);
+            let wrapped = next < self.play;
+            self.play = next;
+            if wrapped {
+                // A loop wrap moves the position backwards, so every note of the
+                // chunk is ahead of us again.
+                self.reseek();
+            }
+        }
+    }
+
+    /// Start every note of the current chunk whose onset falls in this quantum.
+    ///
+    /// Notes are stamped in **play position**, so this comparison is against the
+    /// transport rather than the session clock — which is what makes a loop need
+    /// no recompilation (eng-06 §6.3).
+    fn dispatch(&mut self, span: usize) {
+        let (Some(handle), Some(instrument)) = (self.chunk, self.instrument.as_mut()) else {
+            return;
+        };
+        // SAFETY: the engine owns this handle until it returns it over the
+        // garbage ring, and a chunk is immutable once handed over.
+        let chunk = unsafe { handle.get() };
+        let from = self.play;
+        let to = self.play + span as u64;
+
+        while self.cursor < chunk.note.len() {
+            let note = chunk.note[self.cursor];
+            if note.at >= to {
+                break;
+            }
+            self.cursor += 1;
+            if note.at < from {
+                continue; // already past; the cursor was behind
+            }
+            // The offset within the quantum is what makes onsets land on the
+            // sample rather than on the block boundary.
+            let offset = (note.at - from) as usize;
+            let seed = note.at.0 ^ (u64::from(note.hz.to_bits()) << 16) ^ u64::from(note.voice);
+            instrument.note_on(note.hz, note.level, u64::from(note.dur), offset, seed);
+        }
+    }
+
+    /// Re-seed the note cursor after the play position moves discontinuously.
+    fn reseek(&mut self) {
+        let Some(handle) = self.chunk else {
+            self.cursor = 0;
+            return;
+        };
+        // SAFETY: as `dispatch`.
+        let chunk = unsafe { handle.get() };
+        self.cursor = chunk.note.partition_point(|n| n.at < self.play);
+    }
+
+    /// Peak levels for the position snapshot, measured over the whole block
+    /// after everything has been rendered into it.
+    fn meter(&mut self, block: &Block<'_>) {
         for (channel, slot) in self.peak.iter_mut().enumerate() {
             *slot = if channel < block.out.channel() {
                 block.out.peak(channel)

@@ -41,6 +41,13 @@ cosmic-text = "0.19"
 cpal = "0.18.1"
 rtrb = "0.3.4"
 
+# The bake's transform, approved at dsp-02 §12.2. `realfft` is the real-input
+# wrapper and brings `rustfft` with it, so only one entry is declared; both are
+# MIT/Apache and pure Rust. It is a dependency of rev-dsp (app-side, allocates
+# freely) and a *dev*-dependency of rev-testkit — an FFT never enters
+# rev-engine, and never ships.
+realfft = "3.5.0"
+
 # Build profiles: external dependencies and RT crates optimized even in dev
 # builds (debug-assertions/overflow-checks stay on); other workspace members
 # default to opt-level 0 — raise to 1 empirically if iteration feels sluggish.
@@ -49,6 +56,11 @@ rtrb = "0.3.4"
 opt-level = 3
 
 [profile.dev.package.rev-engine]
+opt-level = 3
+
+# The bake is a numeric loop over 2^17 bins, sixteen times per instrument. At
+# opt-level 0 it is minutes; optimized it is a moment. Debug assertions stay on.
+[profile.dev.package.rev-dsp]
 opt-level = 3
 
 # Rasterization is per-pixel work and unusably slow unoptimized: a full-panel

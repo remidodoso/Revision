@@ -162,10 +162,12 @@ fn a_chunk_is_taken_and_returned_but_never_freed_by_the_engine() {
     let first = ChunkHandle::new(Chunk {
         from: SampleTime(0),
         to: SampleTime(48_000),
+        note: Vec::new(),
     });
     let second = ChunkHandle::new(Chunk {
         from: SampleTime(48_000),
         to: SampleTime(96_000),
+        note: Vec::new(),
     });
 
     app.send(Command::now(What::TakeChunk(first)))

@@ -6,3 +6,4 @@
 //! whatever is proved by one is true of the other.
 
 pub mod audio;
+pub mod pad;

@@ -29,8 +29,17 @@ impl Audio {
     /// Open a stream and start it. **The stream opens once and never stops** —
     /// silence is written while the transport is stopped (eng-01 §11.5).
     pub fn open(log: Log, request: &Request) -> Audio {
+        Audio::open_with(log, request, |_| None)
+    }
+
+    /// Open with an instrument, built once the device's format is known.
+    pub fn open_with(
+        log: Log,
+        request: &Request,
+        instrument: impl FnOnce(rev_engine::Format) -> Option<rev_engine::Instrument>,
+    ) -> Audio {
         let (app, rt) = session();
-        match Device::open(request, rt) {
+        match Device::open_with(request, rt, instrument) {
             Ok(device) => {
                 let report = device.report().clone();
                 log.info(creator::ENGINE_STREAM, report.summary());

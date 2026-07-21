@@ -449,3 +449,23 @@ pub fn realized(conn: &Connection, track_id: TrackId) -> Result<Vec<RealizedEven
     let rows = statement.query_map([track_id.get()], row_to_realized)?;
     Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
 }
+
+/// The same, restricted to onsets in `[from, to)` — what the schedule compiler
+/// asks for each look-ahead window.
+///
+/// **Onsets, not spans.** A note beginning before `from` is not returned even if
+/// it would still be sounding, which is deliberate and is the same rule a window
+/// applies to material (R-405a). Reconstructing what should already be sounding
+/// at an arbitrary position is *chasing*, a real feature and a separate one.
+pub fn realized_between(
+    conn: &Connection,
+    track_id: TrackId,
+    from: Tick,
+    to: Tick,
+) -> Result<Vec<RealizedEvent>, StoreError> {
+    let mut statement = conn.prepare(
+        "SELECT track_id, kind, at_tick, dur_tick, note_number, velocity, tuning_id,          phrase_instance_id FROM v_realized          WHERE track_id = ?1 AND at_tick >= ?2 AND at_tick < ?3          ORDER BY at_tick, note_number",
+    )?;
+    let rows = statement.query_map([track_id.get(), from.get(), to.get()], row_to_realized)?;
+    Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+}

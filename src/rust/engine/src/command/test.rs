@@ -29,6 +29,7 @@ fn a_chunk_crosses_by_handle_and_comes_home() {
     let handle = ChunkHandle::new(Chunk {
         from: crate::time::SampleTime(0),
         to: crate::time::SampleTime(48_000),
+        note: Vec::new(),
     });
 
     // SAFETY: this side owns the handle, having just made it.

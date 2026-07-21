@@ -18,6 +18,7 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       # Generated docs are only worth committing if CI proves them current.
       - run: cargo xtask filemap
+      - run: cargo xtask plan
       - run: cargo xtask schema --check
 
   test:

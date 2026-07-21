@@ -1,0 +1,23 @@
+[package]
+name = "rev-dsp"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+# dsp-02 §2: no workspace crate at all. Not rev-engine (which must not acquire an
+# FFT), not rev-core (the bake is physics, not music — it takes frequencies and
+# returns samples, R-312). realfft brings rustfft with it; both are MIT/Apache.
+[dependencies]
+realfft.workspace = true
+
+# The aliasing sweep renders through a real voice, so it needs the engine — as a
+# *dev*-dependency, which is the direction that keeps rev-engine free of an FFT.
+[dev-dependencies]
+rev-engine = { path = "../engine" }
+rev-testkit = { path = "../testkit" }
+
+[[test]]
+name = "it"
+path = "tests/it/main.rs"

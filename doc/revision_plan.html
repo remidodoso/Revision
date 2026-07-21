@@ -61,6 +61,12 @@
              border: 1px solid var(--accent); border-radius: 6px; padding: 10px 12px;
              font-size: 15px; z-index: 10; pointer-events: none; white-space: pre-wrap; }
   #err { margin: 40px; color: var(--executing); }
+  #worklog { margin: 14px 22px 40px; }
+  #worklog > summary { cursor: pointer; color: var(--dim); font-size: 15px;
+                       padding: 6px 0; }
+  #worklog .entry { background: var(--panel); border-radius: 6px;
+                    padding: 10px 14px; margin: 8px 0; white-space: pre-wrap; }
+  #worklog .ts { color: var(--dim); font-size: 14px; margin-right: 8px; }
 </style>
 </head>
 <body>
@@ -77,6 +83,7 @@
 </div>
 <div id="lanes"></div>
 <div id="history"><h2>History (completed, by date)</h2><ul id="history_list"></ul></div>
+<details id="worklog"><summary>Work log</summary><div id="worklog_list"></div></details>
 <div id="tooltip"></div>
 <div id="err" hidden></div>
 
@@ -261,13 +268,21 @@ function render() {
   }
 }
 
-function render_static(archive_items) {
+function render_static(archive_items, worklog) {
   document.getElementById("updated").textContent =
     "updated " + plan.meta.updated + " — data: revision_plan.json";
+  // `now` is exactly one entry: where the project stands, not what was last
+  // done. Retired entries live in the archive's `log` and are rendered below,
+  // collapsed — the record stays complete without being the first thing read.
   const now_el = document.getElementById("now");
   now_el.innerHTML = (plan.now || [])
     .map(n => '<div><span class="ts">' + esc(n.ts) + "</span>" + esc(n.text) + "</div>")
     .join("");
+
+  document.getElementById("worklog_list").innerHTML = worklog.length
+    ? worklog.map(n => '<div class="entry"><span class="ts">' + esc(n.ts) + "</span>" +
+                       esc(n.text) + "</div>").join("")
+    : "<div>(no entries yet)</div>";
 
   const legend = document.getElementById("legend");
   legend.innerHTML = statuses
@@ -308,10 +323,14 @@ async function main() {
     return;
   }
   let archive_items = [];
-  try { archive_items = (await fetch_json("revision_plan_archive.json")).items || []; }
-  catch (e) { /* archive optional */ }
+  let worklog = [];
+  try {
+    const archive = await fetch_json("revision_plan_archive.json");
+    archive_items = archive.items || [];
+    worklog = archive.log || [];
+  } catch (e) { /* archive optional */ }
   req_map = parse_requirements(await fetch_text_optional("revision_requirements_v1.md"));
-  render_static(archive_items);
+  render_static(archive_items, worklog);
   render();
 }
 

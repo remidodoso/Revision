@@ -9,7 +9,13 @@ publish = false
 [dependencies]
 rev-ui-mech = { path = "../ui_mech" }
 rev-ui-kit = { path = "../ui_kit" }
+rev-core = { path = "../core" }
+rev-store = { path = "../store" }
+rev-sched = { path = "../sched" }
 rev-engine = { path = "../engine" }
+# dsp-02: the bake is app-side work, and the app is where its result is turned
+# into tables and handed across the seam.
+rev-dsp = { path = "../dsp" }
 rev-log = { path = "../log" }
 
 # The windowed application.
@@ -23,3 +29,8 @@ path = "src/main.rs"
 [[bin]]
 name = "rev-tone"
 path = "src/bin/tone.rs"
+
+# The first musical sound: MHALL from stored material, compiled and played.
+[[bin]]
+name = "rev-mhall"
+path = "src/bin/mhall.rs"

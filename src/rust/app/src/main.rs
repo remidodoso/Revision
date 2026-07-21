@@ -115,15 +115,17 @@ fn control_bar() -> Widget {
         Rect::new(x, TOP, 118.0, H),
     ));
 
-    // Counter: bar | beat | unit at 5040 ppq (R-003), editable during playback.
+    // Counter: beat | subdivision at 5040 ppq (R-003), editable during playback.
+    //
+    // **No bar field.** There is no meter yet, and a bar the model does not have is
+    // a claim the display has no right to make (R-421: accent is material, not a
+    // property of the timeline). When meter arrives the counter grows a third
+    // field; until then the beat simply counts. Four digits because beats
+    // accumulate where bars divided — 9999 beats is over an hour at 120.
     child.push(Widget::new(
         COUNTER.0,
         Kind::Counter {
-            field: vec![
-                Field::new(1, 3, 1, 999),
-                Field::new(1, 2, 1, 16),
-                Field::new(0, 4, 0, 5039),
-            ],
+            field: vec![Field::new(1, 4, 1, 9999), Field::new(0, 4, 0, 5039)],
             separator: '|',
         },
         "Counter",
@@ -185,11 +187,13 @@ fn control_bar() -> Widget {
     .with_child(child)
 }
 
-/// Beats per bar and quarter-note tempo, until the tempo map is wired to the
-/// model. **Musical, therefore app-side**: the engine is told samples and knows
-/// nothing of either (R-312).
-const BEAT_PER_BAR: i64 = 4;
+/// Quarter-note tempo, until the tempo map is wired to the model. **Musical,
+/// therefore app-side**: the engine is told samples and knows nothing of it
+/// (R-312).
 const BPM: f64 = 120.0;
+/// Where counting starts, per R-944. A user preference with no settings file to
+/// live in yet, so it sits here at its default and is read from one place.
+const ORIGIN: i64 = 1;
 /// Ticks per quarter note (R-003). The counter's third field is in these.
 const PPQ: i64 = 5040;
 
@@ -205,7 +209,7 @@ struct Bringup {
     playing: bool,
     /// Last counter reading pushed to the kit, so a still transport does not
     /// repaint sixty times a second.
-    shown: (i64, i64, i64),
+    shown: (i64, i64),
 }
 
 impl Bringup {
@@ -216,18 +220,21 @@ impl Bringup {
             kit: Kit::new(control_bar(), Skin::default()),
             audio,
             playing: false,
-            shown: (0, 0, -1),
+            shown: (0, -1),
         }
     }
 
-    /// Sample position to bar | beat | unit, through the tempo the application
+    /// Sample position to beat | subdivision, through the tempo the application
     /// holds. This conversion is the whole of what "the compiler is the last
-    /// place music exists" means in miniature.
-    fn reading(&self, at: SampleTime) -> (i64, i64, i64) {
+    /// place music exists" means in miniature: samples come up from the engine,
+    /// music is put on them here.
+    fn reading(&self, at: SampleTime) -> (i64, i64) {
         let seconds = at.seconds(self.audio.sample_rate());
         let tick = (seconds * BPM / 60.0 * PPQ as f64) as i64;
-        let beat = tick / PPQ;
-        (1 + beat / BEAT_PER_BAR, 1 + beat % BEAT_PER_BAR, tick % PPQ)
+        // The beat is a count and takes the origin; the subdivision is a
+        // remainder and is always zero-based, because zero past the beat is
+        // exactly where the beat is (R-944).
+        (ORIGIN + tick / PPQ, tick % PPQ)
     }
 
     /// Push whatever the kit marked dirty into the window that owns it.
@@ -342,7 +349,6 @@ impl Host for Bringup {
             self.shown = reading;
             self.kit.set_field(COUNTER, 0, reading.0);
             self.kit.set_field(COUNTER, 1, reading.1);
-            self.kit.set_field(COUNTER, 2, reading.2);
             self.flush(window, mech);
         }
         // Ask to be woken only while something is actually moving. An application

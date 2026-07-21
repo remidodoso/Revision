@@ -103,6 +103,13 @@ pub enum Kind {
     /// `position` runs -1..=1 and is **not** a value the user sets — it is where
     /// the control currently is, and it goes home by itself.
     Shuttle { position: f32 },
+    /// A scrollable region. **The one widget whose inside the kit does not
+    /// model** (ui-07 §3): it owns the frame, the reserved gutters, both bars,
+    /// the zoom clusters and the clip rectangle, and the application paints what
+    /// is inside. A roll of a hundred thousand notes cannot be a hundred
+    /// thousand widgets — layout, hit-testing and the a11y tree all walk the
+    /// tree, and all three would break quietly.
+    Pane { pane: crate::pane::Pane },
 }
 
 /// What the transport is doing about recording.
@@ -203,6 +210,13 @@ impl Widget {
             Kind::Slider { value, .. } => Some(format!("{:.0}%", value * 100.0)),
             Kind::PopUp { option, chosen } => option.get(*chosen).cloned(),
             Kind::Shuttle { position } => Some(format!("{position:+.2}")),
+            // What a screen reader can say about a pane without knowing what is
+            // in it. The *interior's* semantics are its consumer's obligation
+            // (ui-07 §3), and saying so out loud beats pretending otherwise.
+            Kind::Pane { pane } => Some(format!(
+                "{:.0},{:.0} of {:.0}x{:.0}",
+                pane.offset.x, pane.offset.y, pane.extent.w, pane.extent.h
+            )),
             Kind::Record { mode } => Some(
                 match mode {
                     RecordMode::Off => "off",
@@ -240,6 +254,7 @@ impl Widget {
             Kind::Slider { .. } => A11yRole::Slider,
             Kind::PopUp { .. } => A11yRole::PopUp,
             Kind::Shuttle { .. } => A11yRole::Slider,
+            Kind::Pane { .. } => A11yRole::Group,
         }
     }
 
@@ -255,6 +270,7 @@ impl Widget {
                 | Kind::PopUp { .. }
                 | Kind::Slider { .. }
                 | Kind::Shuttle { .. }
+                | Kind::Pane { .. }
         ) && !self.inert
     }
 }
@@ -305,6 +321,45 @@ pub enum Intent {
     /// when released — the return to zero is an event too, or the transport never
     /// learns that scrubbing stopped.
     Shuttled(f32),
+    /// A pane's view moved: its offset, in content units.
+    ///
+    /// **Snapping back during a thumb drag is one of these**, not a cancel. The
+    /// drag emits offsets continuously; straying out of the bar emits the offset
+    /// the drag began at; coming back resumes. Releasing outside emits nothing
+    /// further, because the value is already what it was (ui-07 §5.5).
+    Scrolled(Point),
+    /// A pane's scale changed: content units per pixel, per axis.
+    Zoomed(crate::pane::Scale),
+}
+
+/// Push the skin's lengths into every pane in a tree.
+fn apply_metric(widget: &mut Widget, metric: crate::pane::PaneMetric) {
+    if let Kind::Pane { pane } = &mut widget.kind {
+        pane.metric = metric;
+    }
+    for child in &mut widget.child {
+        apply_metric(child, metric);
+    }
+}
+
+/// A drag on a pane's furniture. **Not on its contents** — those belong to the
+/// application, which gets the press and does what it likes with it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct PaneDrag {
+    pub id: WidgetId,
+    pub axis: crate::pane::Axis,
+    pub what: PaneGrab,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) enum PaneGrab {
+    /// `grab` is where in the thumb it was taken; `origin` is the offset the
+    /// drag began at, which is what a snap-back returns to.
+    Thumb {
+        grab: f32,
+        origin: f32,
+    },
+    ZoomSlider,
 }
 
 /// Ephemeral interaction state, deliberately separate from the design.
@@ -333,6 +388,15 @@ struct Touch {
     open: Option<WidgetId>,
     /// Where a shuttle drag began: pointer x, and the position it started from.
     shuttle: Option<(f32, f32)>,
+    /// A pane gesture in progress.
+    pane: Option<PaneDrag>,
+    /// Which piece of a pane's furniture the pointer is over.
+    ///
+    /// **Sub-widget hover, which nothing else in the kit needs.** A pane is one
+    /// widget containing several controls, so "the widget under the pointer" is
+    /// not specific enough to highlight with. The interior is deliberately not
+    /// one of the answers: content is not a control.
+    pane_part: Option<(WidgetId, crate::pane::Part)>,
     /// The counter field being edited, if any: widget and field index.
     focus: Option<(WidgetId, usize)>,
     /// The last press: target, when, and where — for recognising a double-click.
@@ -381,6 +445,17 @@ impl Kit {
     /// Resolve every widget's absolute rect for a window of this size. Anchored
     /// edges follow the parent; unanchored ones keep their designed offset.
     pub fn layout(&mut self, window: Rect) {
+        // The skin owns how wide a scroll bar is; the pane carries it so that
+        // its geometry stays a pure function of itself. Copied in here, once,
+        // rather than threaded through every geometry call.
+        let metric = crate::pane::PaneMetric {
+            bar: self.skin.metric.scroll_bar,
+            min_thumb: self.skin.metric.scroll_thumb_min,
+            drag_tolerance: self.skin.metric.scroll_bar * 3.0,
+            min_track: self.skin.metric.scroll_thumb_min * 2.0,
+            ..crate::pane::PaneMetric::default()
+        };
+        apply_metric(&mut self.root, metric);
         self.placed.clear();
         let root = std::mem::replace(
             &mut self.root,
@@ -390,6 +465,33 @@ impl Kit {
         place(&root, window, designed, &mut self.placed);
         self.root = root;
         self.dirty.push(window);
+    }
+
+    /// Is the pointer on this piece of a pane's furniture?
+    pub(crate) fn pane_part_hovered(&self, id: WidgetId, part: crate::pane::Part) -> bool {
+        self.touch.pane_part == Some((id, part))
+    }
+
+    /// Is the pointer anywhere in this bar's track?
+    ///
+    /// **The thumb lights for the whole track, not only for itself.** Once the
+    /// pointer is in a track the wheel scrolls *that* axis, so the thumb is the
+    /// thing about to move — and a control that is about to act should say so.
+    /// Highlighting only the thumb would leave the bar looking inert at the
+    /// moment it became the wheel's target.
+    pub(crate) fn pane_bar_hovered(&self, id: WidgetId, axis: crate::pane::Axis) -> bool {
+        matches!(
+            self.touch.pane_part,
+            Some((w, crate::pane::Part::Thumb(a) | crate::pane::Part::Track(a)))
+                if w == id && a == axis
+        )
+    }
+
+    /// What a widget *is*, for a caller that needs its state rather than its
+    /// geometry — a pane's offset and scale, chiefly, which an application needs
+    /// in order to paint the inside of one.
+    pub fn kind(&self, id: WidgetId) -> Option<&Kind> {
+        self.find(id).map(|w| &w.kind)
     }
 
     /// Absolute rect of a widget, once laid out.
@@ -547,6 +649,10 @@ impl Kit {
             Some((_, true)) => CursorShape::Default,
             Some((Kind::Slider { .. } | Kind::Counter { .. }, _)) => CursorShape::ResizeVertical,
             Some((Kind::Shuttle { .. }, _)) => CursorShape::ResizeHorizontal,
+            // Deliberately the default over a pane: the pointer is over
+            // *content*, and what that content wants the cursor to be is its
+            // own business.
+            Some((Kind::Pane { .. }, _)) => CursorShape::Default,
             Some((
                 Kind::Button
                 | Kind::Toggle { .. }
@@ -704,7 +810,7 @@ fn resolve(rect: Rect, anchor: Anchor, parent: Rect, designed: Size) -> Rect {
     out
 }
 
-mod draw;
+pub mod draw;
 mod event;
 
 #[cfg(test)]

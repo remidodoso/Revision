@@ -20,23 +20,36 @@
 //!
 //! Approved at eng-01; see `doc/completed/revision_eng01_proposal.md`.
 
+pub mod automation;
 pub mod command;
 pub mod driver;
 pub mod engine;
 pub mod error;
 pub mod format;
+pub mod graph;
 pub mod guard;
+pub mod instrument;
 pub mod obs;
+pub mod param;
 pub mod port;
 pub mod position;
+pub mod table;
 pub mod time;
 mod tone;
+pub mod voice;
 
-pub use command::{Chunk, ChunkHandle, Command, Garbage, What};
+pub use automation::{Automation, Curve};
+pub use command::{Chunk, ChunkHandle, Command, Garbage, Note, What};
 pub use engine::Engine;
 pub use error::EngineError;
 pub use format::{Block, Format, Planar, PlanarMut};
+pub use graph::{
+    BiquadMode, BuildError, Graph, GraphSpec, NodeKind, NodeRef, NodeSpec, ParamId, QUANTUM,
+};
+pub use instrument::{Instrument, Patch};
 pub use obs::{Code, Creator, Level, Obs};
 pub use port::{EngineSession, Refused, RtPort, session};
 pub use position::Position;
+pub use table::{Table, TableId, TableSet};
 pub use time::{NOW, SampleTime};
+pub use voice::{Span, VoicePool, VoiceState};

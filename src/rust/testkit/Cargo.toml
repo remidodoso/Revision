@@ -10,3 +10,6 @@ publish = false
 rev-core = { path = "../core" }
 rev-store = { path = "../store" }
 rusqlite.workspace = true
+# dsp-02 §9: the spectral helper. rev-testkit is consumed via dev-dependencies
+# only, so an FFT here never ships — and never enters rev-engine.
+realfft.workspace = true

@@ -116,6 +116,15 @@ pub struct Metric {
     pub readout_char: f32,
     /// Minimum hit size, independent of visual scale — the touch floor.
     pub touch_min: f32,
+    /// How wide a scroll bar is, and the shortest its thumb may be.
+    ///
+    /// **Here rather than in `pane`** because it is a matter of feel, and this
+    /// is where feel lives. Wider than current convention on purpose: bars
+    /// shrank because phone conventions leaked to the desktop, and the target
+    /// display is a 50-inch panel at desk distance — the same reasoning that
+    /// made the type scale larger than control-skin convention.
+    pub scroll_bar: f32,
+    pub scroll_thumb_min: f32,
 }
 
 /// The type scale.
@@ -181,6 +190,8 @@ impl Skin {
                 lamp_diameter: 9.0,
                 readout_char: 5.5,
                 touch_min: 32.0,
+                scroll_bar: crate::pane::BAR,
+                scroll_thumb_min: crate::pane::MIN_THUMB,
             },
             kind: Kind {
                 band: 12.0,

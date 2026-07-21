@@ -3,8 +3,9 @@
     "purpose": "Bundled non-crate assets. cargo-deny audits crates only and cannot see anything here; this manifest is the other half of R-1514's attribution document, and R-1515 credits its authors by name in the About view.",
     "rule": "Assets come from upstream project releases, never from a service API serving silently-updated subsets. Every entry records source, version, checksum, licence, and author.",
     "reserved_font_name": "Where declared, OFL clause 3 forbids using the reserved name in a Modified Version. Subsetting is a modification. Nothing here is modified; if that changes, the derivative must be renamed.",
-    "updated": "2026-07-20",
-    "checkpoint": "ui-01 §13.2"
+    "updated": "2026-07-21",
+    "checkpoint": "ui-01 §13.2",
+    "derived": "Shapes transcribed from an upstream project rather than bundled from it. No file ships, so there is nothing to checksum; the obligation is attribution (R-1514) and credit in About (R-1515), which applies to a copied design as much as to a copied file."
   },
   "entry": [
     {
@@ -114,6 +115,16 @@
       "kind": "license",
       "covers": "JetBrains Mono NL",
       "sha256": "30f0c136e3c88e422d0791acd97238870f9054a9729bc34cf2ff0d4ed8cac4ad"
+    }
+  ],
+  "derived": [
+    {
+      "what": "zoom-in / zoom-out glyphs",
+      "used_in": "src/rust/ui_kit/src/kit/draw.rs, the pane's zoom cluster (ui-07 §6.4)",
+      "author": "Lucide contributors",
+      "source": "https://lucide.dev/icons/zoom-in and .../zoom-out",
+      "license": "ISC",
+      "note": "Geometry only, transcribed into painter calls: circle r=8 at (11,11) on a 24-unit square, handle (16.65,16.65)-(21,21), sign arms 8..14 about 11. Nothing bundled, nothing modified - the same shape, drawn by us."
     }
   ]
 }

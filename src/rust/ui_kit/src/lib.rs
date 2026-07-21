@@ -5,7 +5,10 @@
 //! button, toggles, multi-field numeric displays, shuttle, locator bank.
 
 pub mod kit;
+pub mod pane;
 pub mod skin;
 
+pub use kit::draw::PaneArtist;
 pub use kit::{Anchor, Field, Intent, Kind, Kit, RecordMode, Widget, WidgetId};
+pub use pane::{Axis, BarPolicy, Pane, Scale};
 pub use skin::{Kind as TypeScale, Metric, Role, Skin, State};

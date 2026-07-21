@@ -1,0 +1,27 @@
+[package]
+name = "rev-sched"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+# Approved at eng-06. Sits above core, store and engine and is depended on by
+# rev-app and by eng-07's headless binary — the compiler must be testable without
+# a window, and R-312 forbids it living inside the engine. No new external
+# dependency.
+[dependencies]
+rev-core = { path = "../core" }
+rev-store = { path = "../store" }
+rev-engine = { path = "../engine" }
+thiserror.workspace = true
+
+[dev-dependencies]
+rev-testkit = { path = "../testkit" }
+# dsp-02: the integration tests play the real instrument, not a stand-in.
+rev-dsp = { path = "../dsp" }
+proptest.workspace = true
+
+[[test]]
+name = "it"
+path = "tests/it/main.rs"

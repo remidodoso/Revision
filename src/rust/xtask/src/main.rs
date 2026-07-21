@@ -5,6 +5,7 @@
 //!   schema [path] [--check]   generate doc/revision_schema.json from a live
 //!                             database; with a path, document that project
 //!   filemap                   verify doc/revision_file_map.json both ways
+//!   plan                      verify doc/revision_plan.json against its viewer
 //!   tmon                      the store kill-test (lands with stage 1's exit)
 //!   perf                      ledger recorder (lands with stage 2)
 //!
@@ -12,6 +13,7 @@
 //! accident.
 
 mod filemap;
+mod plan;
 mod schema;
 
 use std::path::{Path, PathBuf};
@@ -25,12 +27,13 @@ fn main() -> ExitCode {
     let outcome = match name {
         Some("schema") => schema::run(&repo_root(), &rest),
         Some("filemap") => filemap::run(&repo_root()),
+        Some("plan") => plan::run(&repo_root()),
         Some(pending @ ("tmon" | "perf")) => {
             eprintln!("xtask {pending}: not implemented yet (lands with its consumer stage)");
             return ExitCode::FAILURE;
         }
         _ => {
-            eprintln!("usage: cargo xtask <schema [path] [--check]|filemap|tmon|perf>");
+            eprintln!("usage: cargo xtask <schema [path] [--check]|filemap|plan|tmon|perf>");
             return ExitCode::FAILURE;
         }
     };

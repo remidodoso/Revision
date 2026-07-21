@@ -328,3 +328,79 @@ fn resolve(temp: &TempProject, tuning: rev_core::TuningId, note: NoteNumber) -> 
         .freq(note)
         .unwrap()
 }
+
+/// **A nested instance does not realize.** Recorded as a failing test rather than
+/// as prose, because R-407 permits a phrase to contain instances of other phrases
+/// and R-422 requires a structured instance to realize as though it had been baked
+/// — while `v_realized` unions direct events with the events of an *instanced*
+/// phrase, one level deep. There is no recursion, so events reached only through a
+/// nested instance are absent from the arrangement.
+///
+/// Ignored, not deleted: the fix changes a checkpointed view definition (a
+/// recursive CTE), which is not a thing to slip in under a test's cover. Run it
+/// with `cargo test -- --ignored` to see the gap.
+#[test]
+#[ignore = "R-407/R-422: v_realized is one level deep; nesting does not realize (core-03 finding)"]
+fn a_nested_instance_realizes_as_though_baked() {
+    let mut temp = TempProject::create().unwrap();
+
+    // inner holds the notes; outer holds an instance of inner; the arrangement
+    // holds an instance of outer. The notes are therefore two levels down.
+    let track = temp
+        .project_mut()
+        .gesture(|g| {
+            let mut phrase = |name: &str, len: i64| match g.exec(Command::CreatePhrase {
+                id: None,
+                phrase: PhraseSpec::new(name, Tick(len)),
+            }) {
+                Ok(Command::CreatePhrase { id: Some(id), .. }) => id,
+                _ => unreachable!(),
+            };
+            let inner = phrase("Inner", PPQ * 2);
+            let outer = phrase("Outer", PPQ * 2);
+            let arrangement = phrase("Arr", PPQ * 4);
+
+            g.exec(Command::AddEvent {
+                container: Container::Phrase(inner),
+                event: vec![
+                    EventSpec::note(Tick(0), Tick(PPQ), 60, 40_000),
+                    EventSpec::note(Tick(PPQ), Tick(PPQ), 64, 40_000),
+                ],
+            })?;
+
+            let mut track_in = |phrase, name: &str| match g.exec(Command::CreateTrack {
+                id: None,
+                track: rev_core::phrase::TrackSpec::new(phrase, name, 0),
+            }) {
+                Ok(Command::CreateTrack { id: Some(id), .. }) => id,
+                _ => unreachable!(),
+            };
+            let outer_track = track_in(outer, "Nested");
+            let top_track = track_in(arrangement, "Top");
+
+            g.exec(Command::CreatePhraseInstance {
+                id: None,
+                phrase_instance: PhraseInstanceSpec::new(
+                    inner,
+                    InstanceContainer::Track(outer_track),
+                    Tick::ZERO,
+                ),
+            })?;
+            g.exec(Command::CreatePhraseInstance {
+                id: None,
+                phrase_instance: PhraseInstanceSpec::new(
+                    outer,
+                    InstanceContainer::Track(top_track),
+                    Tick::ZERO,
+                ),
+            })?;
+            Ok(top_track)
+        })
+        .unwrap();
+
+    assert_eq!(
+        realized_note(&temp, track),
+        vec![(0, 60), (PPQ, 64)],
+        "the inner phrase's notes should sound through the outer instance (R-422)"
+    );
+}

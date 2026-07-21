@@ -87,6 +87,61 @@ Also: name a button "with a verb that describes the action that it performs", on
 word where possible and never more than three; Escape and Command-period are always
 Cancel; do not give a default button when the likely action is dangerous.
 
+## 3a. Scroll bars (ch. 5, "Windows", pp. 158–167) — read 2026-07-21 for ui-kit scroll
+
+The anatomy: "A scroll bar is a light gray rectangle that has an arrow in a box at
+each end… Inside the scroll bar is a rectangle called the **scroll box**… The rest of
+the scroll bar is called the **gray area**." A vertical bar sits on the right, a
+horizontal one along the bottom.
+
+**They are never hidden** (p. 160):
+
+> "If the document is no larger than the window, the scroll bars are **inactive**.
+> This means that the rectangles are outlined, but there is no gray area, no scroll
+> box, and the arrows are hollow (their outlines appear)."
+
+So a scroll bar with nothing to scroll becomes *empty*, not *absent* — the space is
+reserved by construction. Auto-hiding bars have no basis here.
+
+**The scroll box carries position only** (p. 159): "The scroll box represents the
+relative **location**, in the whole document, of the portion that can be seen in the
+window." Nothing about size, and a page number inside the box is offered as the way
+to say more (p. 162) — the 1992 box is fixed.
+
+**Paging** (p. 164): "Clicking in the gray area of the scroll bar advances the
+document by a windowful… A windowful equals the height or width of the window,
+**minus at least one unit of overlap** to maintain the user's context." Pressing
+repeats "until the user releases the mouse button, or until the location of the
+scroll box catches up to the location of the pointer."
+
+**Dragging is not live** (p. 159): "If the user drags the scroll box **and releases
+the mouse button**, the document 'moves' along with it."
+
+**Dragging out** (p. 165), which is §3's control rule applied to the thumb:
+
+> "If the user starts dragging the scroll box, then moves the pointer out of the
+> scroll bar, the scroll box stops following the pointer and **snaps back to its
+> original position**. The user can move the pointer out of the scroll bar region by a
+> little more than the width of the scroll box before the scroll box snaps back… This
+> type of tracking is standard behavior for controls in general."
+
+**Automatic scrolling** (pp. 166–167) — four cases where the application must scroll:
+an operation that moves the selection or insertion point; keyboard entry at the edge;
+the pointer leaving the window during an extended selection ("the rate of scrolling
+can be the same as if the user were pressing on the corresponding scroll arrow…
+it makes sense to vary the scrolling speed so that it is faster as the user moves the
+pointer farther away"); and an operation on a selection scrolled out of view. The
+governing rule is restraint: "avoid unnecessary scrolling… move a document only as
+much as necessary… if part of a selection is showing, don't scroll at all", never
+scroll both axes when one will do, and prefer the selection "somewhere near the middle
+of a window than right up against a corner."
+
+**A scroll bar is not a value control** (ch. 7, p. 214): "Make sure that you don't use
+a scroll bar when you really mean to use a slider. Use scroll bars **only** for
+representing the relative position of the visible portion of a document and in
+scrolling lists… Using a scroll box to change a setting confuses the meaning of the
+element." Binding on us: the roll's zoom is not a scroll bar.
+
 ## 4. Fields (ch. 10, "Editing Fields")
 
 For an application that is not primarily a text application:
@@ -147,6 +202,21 @@ Not gaps — disagreements, and we think we are right:
 - **Modality tolerance.** Its dialog chapters are more permissive than R-905 and
   R-906 allow: our transport never stops for an edit, and an in-progress gesture is
   uncommitted until it completes.
+- **Scroll bars: three departures, decided 2026-07-21** (ui-kit scroll checkpoint;
+  §3a has what the book says). **Proportional scroll box** — the 1992 box carries
+  position alone, ours carries position *and* proportion, because a log of two hundred
+  lines and one of a hundred thousand must not look identical. **Live drag** — the
+  book redraws on release (p. 159), a concession to 1992 hardware we no longer owe.
+  **No scroll arrows** — the arrows are unused furniture on modern hardware; paging by
+  clicking the gray area stays, with the book's one-unit overlap rule intact. We keep
+  the part of §3a that matters most: bars are never hidden, only inactive.
+- **Vertical zoom cluster reads downward** (ch. 7, p. 214: "most people assume that
+  moving an indicator up a vertical slider means increasing the value"). Ours is
+  Vision's horizontal cluster rotated 90° clockwise — minus above plus — so dragging
+  up zooms out. Taken because p. 214 is guarding against *unclear* direction, and the
+  magnifier glyphs make it explicit, which is the remedy the same page recommends
+  ("give some indication what the user can expect", p. 216). One object in two
+  orientations beats two arrangements to learn.
 - **Alert boxes as the safety mechanism.** Ch. 1 leans on them for warnings; our
   answer is journaled reversibility, which the same chapter would prefer — "frequent
   alert boxes are a good indication that something is wrong with the program design."

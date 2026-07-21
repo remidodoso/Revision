@@ -142,6 +142,13 @@ impl<'a> PlanarMut<'a> {
             .fold(0.0f32, |peak, sample| peak.max(sample.abs()))
     }
 
+    /// The raw planar buffer and its stride, for handing a sub-range to a
+    /// renderer. `from` offsets into every plane at once, which is what makes it
+    /// possible to render a quantum into the middle of a device block.
+    pub fn raw_from(&mut self, from: usize) -> (&mut [f32], usize) {
+        (&mut self.data[from..], self.stride)
+    }
+
     pub fn silence(&mut self) {
         for channel in 0..self.channel {
             self.plane(channel).fill(0.0);

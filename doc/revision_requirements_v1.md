@@ -108,6 +108,15 @@ one-to-one.
   note number, and velocity (16-bit, the MIDI 2.0 domain; translated at the MIDI 1.0
   boundary per spec). The event vocabulary shall be extensible (continuous
   controllers, articulation, audio, and other types).
+- R-402a [Arch]. A note is an entity with a **bounded** duration. Paired
+  note-on/note-off is a transport encoding, applied at the boundary that requires it
+  and nowhere else: input converts pairs to entities at capture (R-810), output
+  converts entities to pairs at emission (R-604), and no internal representation
+  carries note fragments. A continuously sounding source — a drone, a running patch
+  — is instrument state expressed by parameter automation, never a note without an
+  end. (MIDI decomposes notes because a serial cable had to; every other
+  representation of a note, including this model's, is an entity. An extremely long
+  note is legal and merely awkward to draw, which R-945 governs.)
 - R-403. Phrases are polyphonic. Editors may impose stricter constraints; the model
   does not.
 - R-404. An instance places a phrase in time. All instances of a phrase share its
@@ -333,6 +342,15 @@ Voices, parameters, behavior:
   should present few, calibrated macro dimensions as their primary surface.
 - R-713 [P1]. Timbre parameters shall be loudness-neutral (energy-normalized): a
   timbre control is not a volume control.
+- R-720 [P1]. Synthesis introduces no inharmonic energy anywhere in the output band.
+  Conformance is measured **to Nyquist, not to the audible band**: reproduction chains
+  are nonlinear (amplifier, transducer, converter output stage, the cochlea itself),
+  and a nonlinearity translates content downward — inharmonic ultrasonic content
+  arrives in the audible range as inharmonic, whereas harmonic ultrasonic content
+  arrives as harmonic and fuses with the note. "We cannot hear it" is not evidence of
+  conformance; a measurement is, and the listener whose hearing defines the band is
+  never the one in the room. Standing evidence: the keyboard-wide aliasing sweep
+  (dsp-02 §9). Cross-references: R-705, R-706, R-713.
 - R-714 [P1]. Instruments receive tuning context through the interface; tuning-aware
   instruments may adapt partial structure (R-513). Note-number-to-frequency resolution
   is time-aware (R-515).
@@ -515,6 +533,41 @@ Windows, workspaces, and documents:
   restored into whichever views bind to it.
 - R-934 [P1]. Closing a project closes the views pinned to it. A following view
   displays an empty state when no project is active.
+
+Positional display:
+
+- R-944 [P1]. Positional display origin is a **user preference**, applied only when
+  displaying a position and when parsing one that was typed. Counted fields (beat,
+  and bar once meter exists) honour it; remainder fields (subdivision) are always
+  zero-based, because a remainder of zero means "on the beat". No stored position,
+  comparison, or interchange value depends on it. It is per-user and is never
+  overridden by a project — opening someone else's material must not change how you
+  count. Default 1.
+- R-945 [P1]. A positional readout never truncates or silently wraps a value it
+  cannot fit: it widens, or the display adapts. A position that reads as something
+  it is not is worse than a position that is inconvenient to lay out.
+- R-946 [P1]. Periodic emphasis in a time-based view (heavier gridlines every N
+  beats) is a **display grouping**: view state, user-settable, carrying no model
+  meaning. It is never a claim about meter, which is material (R-421) and not a
+  property of the timeline. Emphasis exists because a line at every beat is
+  illegible at most zooms, and for no other reason.
+
+Pitch display:
+
+- R-941 [Arch]. Pitch is displayed on a **continuous logarithmic frequency axis**. No
+  pitch view presumes a fixed number of degrees per octave, uniform row height, or a
+  chromatic keyboard. Gridlines, the degree ladder, labels, and (where editing exists)
+  snapping derive from the applicable tuning; a note's position derives from its
+  frequency, resolved through that tuning exactly as the engine resolves it (R-312).
+- R-942 [Arch]. Consequences of R-941, stated so they are not re-litigated: material in
+  different tunings is displayable in one view and comparable by position; retuning
+  moves notes visibly; unequal tunings draw as unequal spacing; and pitch views share
+  their vertical axis with the spectral overview (R-935), so the two may be aligned,
+  stacked, or overlaid.
+- R-943 [P1]. Degrees are labelled as well as they can be: a tuning's own degree names
+  where it has them, otherwise the degree index. Nearest-12-ET-with-cents is available
+  as an orientation aid and is never the primary reading. A degree without a
+  conventional name is a normal case, not an error.
 
 Spectral waveform overview:
 

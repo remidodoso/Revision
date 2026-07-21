@@ -46,6 +46,7 @@ fn the_return_ring_never_drops() {
         let handle = ChunkHandle::new(Chunk {
             from: SampleTime(n as u64),
             to: SampleTime(n as u64 + 1),
+            note: Vec::new(),
         });
         rt.release(Garbage::Chunk(handle)).expect("fits");
     }
@@ -53,6 +54,7 @@ fn the_return_ring_never_drops() {
     let overflow = ChunkHandle::new(Chunk {
         from: SampleTime(9_999),
         to: SampleTime(10_000),
+        note: Vec::new(),
     });
     // Full: the value comes *back*, so the engine can hold and retry. Dropping
     // it would leak; freeing it on the audio thread would allocate.
@@ -75,6 +77,7 @@ fn a_session_frees_what_the_engine_handed_back() {
     let handle = ChunkHandle::new(Chunk {
         from: SampleTime(0),
         to: SampleTime(480),
+        note: Vec::new(),
     });
     rt.release(Garbage::Chunk(handle)).expect("fits");
 
