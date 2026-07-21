@@ -17,9 +17,14 @@ the map is for orientation and placement, not text search.
 - **Discussion precedes implementation.** Do not implement without the user's
   phrase "make it so."
 - **Checkpoints** (schemas, subsystem names, layout, dependencies, public APIs,
-  file formats) require a written proposal and explicit approval first.
+  file formats) require a written proposal and explicit approval first. Live
+  proposals sit in `doc/`; when their plan item completes, they move to
+  `doc/completed/` (never deleted — they record why).
 - **Commits are the user's, alone, always.** Never commit.
 - **`../Notorolla` is strictly read-only.**
+- **Interaction behaviour:** where the requirements are silent, the Macintosh
+  Human Interface Guidelines (1992) decide it — cite the chapter, don't recall it
+  (`doc/revision_hig_inventory.md`, R-939/R-940).
 - **Coding conventions:** `doc/revision_coding_standard.md` — default is
   ordinary Rust convention; the doc records only deviations (singular names,
   sibling test modules, file-map bookkeeping, GPL-free dependencies, …).

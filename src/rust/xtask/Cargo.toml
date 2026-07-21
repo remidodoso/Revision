@@ -5,3 +5,8 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 publish = false
+
+[dependencies]
+rev-store = { path = "../store" }
+rusqlite.workspace = true
+serde_json.workspace = true

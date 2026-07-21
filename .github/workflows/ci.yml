@@ -16,6 +16,9 @@ jobs:
       - uses: actions/checkout@v4
       - run: cargo fmt --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
+      # Generated docs are only worth committing if CI proves them current.
+      - run: cargo xtask filemap
+      - run: cargo xtask schema --check
 
   test:
     runs-on: windows-latest
@@ -23,16 +26,27 @@ jobs:
       - uses: actions/checkout@v4
       - run: cargo test --workspace
 
-  # Cross-compile *checks* (no linking), honestly not tests: proves the code
-  # still compiles for the other family platforms. If a future dependency's
-  # build script probes for Apple SDKs, the darwin check moves to a macos runner.
-  cross:
+  # Cross-compile *checks*, honestly not tests: proves the code still compiles
+  # for the other family platforms.
+  #
+  # The darwin check runs on its own macOS runner rather than from Linux: since
+  # rusqlite bundles SQLite, build scripts compile C, and a C cross-toolchain
+  # for Apple targets does not exist on a Linux runner. (Anticipated at boot-02;
+  # it came true with the first real dependency.) The wasm check needs no C
+  # toolchain at all, because rev-core has no rusqlite — the crate boundary
+  # doing its job.
+  cross-linux:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: cargo check --workspace --target x86_64-unknown-linux-gnu
-      - run: cargo check --workspace --target aarch64-apple-darwin
       - run: cargo check -p rev-core --target wasm32-unknown-unknown
+
+  cross-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo check --workspace --target aarch64-apple-darwin
 
   # Enforces the GPL-free dependency standard against deny.toml's allowlist.
   license:

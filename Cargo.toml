@@ -12,8 +12,26 @@ rust-version = "1.95"
 repository = "https://github.com/remidodoso/Revision"
 
 [workspace.dependencies]
-# Empty at bootstrap. Every entry arrives via a dependency checkpoint
-# (getstarted, ground rule 2): version stated once here, inherited by members.
+# Every entry arrives via a dependency checkpoint (getstarted, ground rule 2):
+# version stated once here, inherited by members.
+# Approved at core-01 §7.8 (serde/serde_json/rusqlite) and core-02 §8.2 (thiserror).
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+thiserror = "2.0.19"
+# bundled: ship SQLite itself (no system dependency). series: generate_series for
+# v_realized loop unrolling. hooks: cache invalidation later. backup: hot backup.
+rusqlite = { version = "0.40.1", features = ["bundled", "series", "hooks", "backup"] }
+# Property testing (boot-03): failing cases persist to proptest-regressions/,
+# which is committed, so every shrunk counterexample becomes a permanent test.
+proptest = "1.11.0"
+# UI stack, approved at ui-01. CPU rasterization, not GPU: the kit-facing API is a
+# paint list, so the backend stays swappable (ui-01 §2). All four are confined to
+# rev-ui-mech — rev-ui-kit depends on rev-ui-mech and nothing else, which is what
+# makes "no native handle ever leaks" structural rather than aspirational.
+winit = "0.30"
+softbuffer = "0.4"
+tiny-skia = "0.12"
+cosmic-text = "0.19"
 
 # Build profiles: external dependencies and RT crates optimized even in dev
 # builds (debug-assertions/overflow-checks stay on); other workspace members
@@ -24,3 +42,9 @@ opt-level = 3
 
 [profile.dev.package.rev-engine]
 opt-level = 3
+
+# Rasterization is per-pixel work and unusably slow unoptimized: a full-panel
+# repaint measured 18.6 ms of blur in dev against 3.6 ms in release. Raised
+# empirically, exactly as boot-02 anticipated. Debug assertions stay on.
+[profile.dev.package.rev-ui-mech]
+opt-level = 2

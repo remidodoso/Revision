@@ -1,0 +1,1154 @@
+{
+  "group": [
+    {
+      "name": "Project — settings",
+      "note": "One row per setting. Small, and deliberately schemaless: these are knobs, not material.",
+      "object": [
+        {
+          "column": [
+            {
+              "default": null,
+              "name": "key",
+              "not_null": false,
+              "note": "setting name; see the META_* constants in schema.rs",
+              "primary_key": true,
+              "type": "TEXT"
+            },
+            {
+              "default": null,
+              "name": "value",
+              "not_null": true,
+              "note": "always text, parsed by the reader that cares",
+              "primary_key": false,
+              "type": "TEXT"
+            }
+          ],
+          "foreign_key": [],
+          "index": [
+            {
+              "column": [
+                "key"
+              ],
+              "declared": false,
+              "name": "sqlite_autoindex_meta_1",
+              "partial": false,
+              "unique": true
+            }
+          ],
+          "kind": "table",
+          "name": "meta",
+          "note": "Project-wide settings: schema version, resolution, default tuning, root phrase.",
+          "sql": null
+        }
+      ]
+    },
+    {
+      "name": "Tuning — definition, binder, frozen result",
+      "note": "The three-level stack (R-501..R-506). The definition side stays exact: rules remain rules, ratios remain integer pairs. Materialization compiles a definition into a frozen table of frequencies, and *that* is playback truth — persisted, so a project sounds identical years later no matter what the builder has since learned. Everything downstream resolves through one materialization, which is the funnel a dynamic tuning (R-515) would use.",
+      "object": [
+        {
+          "column": [
+            {
+              "default": null,
+              "name": "id",
+              "not_null": false,
+              "note": "never reused; redo reinserts at this exact id",
+              "primary_key": true,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "name",
+              "not_null": true,
+              "note": "user-facing name, e.g. \"16-ET\"",
+              "primary_key": false,
+              "type": "TEXT"
+            },
+            {
+              "default": null,
+              "name": "description",
+              "not_null": false,
+              "note": "prose; NULL on a derived row inherits its parent's",
+              "primary_key": false,
+              "type": "TEXT"
+            },
+            {
+              "default": null,
+              "name": "kind",
+              "not_null": true,
+              "note": "'equal' is the only rule kept in the schema, because its steps are irrational and cannot be stored exactly; everything else materializes into tuning_note rows",
+              "primary_key": false,
+              "type": "TEXT"
+            },
+            {
+              "default": null,
+              "name": "period_num",
+              "not_null": false,
+              "note": "interval of equivalence as an exact ratio: 2/1 octave,",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "period_den",
+              "not_null": false,
+              "note": "3/1 Bohlen-Pierce; both NULL means aperiodic (R-502)",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "note_per_period",
+              "not_null": false,
+              "note": "the modulus pitch-class logic uses; NULL when aperiodic",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "anchor_note",
+              "not_null": true,
+              "note": "the note bound to anchor_freq (R-503); builtins use 60",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "anchor_freq",
+              "not_null": true,
+              "note": "middle C for every builtin, so switching a phrase's tuning keeps its home pitch",
+              "primary_key": false,
+              "type": "REAL"
+            },
+            {
+              "default": null,
+              "name": "note_min",
+              "not_null": false,
+              "note": "materialization domain for kinds whose rule is unbounded;",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "note_max",
+              "not_null": false,
+              "note": "NULL for an aperiodic table, whose rows are its domain",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "naming",
+              "not_null": false,
+              "note": "R-508 scheme: letter, hex, near12; presentation only",
+              "primary_key": false,
+              "type": "TEXT"
+            },
+            {
+              "default": null,
+              "name": "origin",
+              "not_null": false,
+              "note": "provenance (R-413): builtin, generated, derived, user",
+              "primary_key": false,
+              "type": "TEXT"
+            },
+            {
+              "default": null,
+              "name": "seed",
+              "not_null": false,
+              "note": "JSON recipe: generator name, parameters, seed",
+              "primary_key": false,
+              "type": "TEXT"
+            },
+            {
+              "default": null,
+              "name": "parent_tuning_id",
+              "not_null": false,
+              "note": "lineage for derived tunings, e.g. re-rooting (R-517 open)",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": "'{}'",
+              "name": "extra",
+              "not_null": true,
+              "note": "JSON escape valve; a field graduates to a column when it earns an index or a CHECK",
+              "primary_key": false,
+              "type": "TEXT"
+            }
+          ],
+          "foreign_key": [
+            {
+              "column": "parent_tuning_id",
+              "table": "tuning",
+              "to": "id"
+            }
+          ],
+          "index": [
+            {
+              "column": [
+                "name"
+              ],
+              "declared": false,
+              "name": "sqlite_autoindex_tuning_1",
+              "partial": false,
+              "unique": true
+            }
+          ],
+          "kind": "table",
+          "name": "tuning",
+          "note": "A tuning definition: everything determining the note-number-to-frequency map.",
+          "sql": null
+        },
+        {
+          "column": [
+            {
+              "default": null,
+              "name": "tuning_id",
+              "not_null": true,
+              "note": "the tuning these notes define",
+              "primary_key": true,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "note_number",
+              "not_null": true,
+              "note": "absolute; periodic tunings cover [anchor, anchor + N)",
+              "primary_key": true,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "ratio_num",
+              "not_null": false,
+              "note": "exact ratio from the anchor — a just fifth is 3/2,",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "ratio_den",
+              "not_null": false,
+              "note": "never 701.955 cents",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "freq",
+              "not_null": false,
+              "note": "or a direct frequency: \"this frequency is this note\", for measured instruments and hand-assigned pitches",
+              "primary_key": false,
+              "type": "REAL"
+            }
+          ],
+          "foreign_key": [
+            {
+              "column": "tuning_id",
+              "table": "tuning",
+              "to": "id"
+            }
+          ],
+          "index": [
+            {
+              "column": [
+                "tuning_id",
+                "note_number"
+              ],
+              "declared": false,
+              "name": "sqlite_autoindex_tuning_note_1",
+              "partial": false,
+              "unique": true
+            }
+          ],
+          "kind": "table",
+          "name": "tuning_note",
+          "note": "Per-note data for a table tuning: one canonical period when periodic, the whole domain when not. Exact by construction (R-504).",
+          "sql": null
+        },
+        {
+          "column": [
+            {
+              "default": null,
+              "name": "id",
+              "not_null": false,
+              "note": "what everything downstream resolves through",
+              "primary_key": true,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "tuning_id",
+              "not_null": true,
+              "note": "the definition this compiled from",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "ts",
+              "not_null": true,
+              "note": "epoch milliseconds; carried in the resolved command so replay reproduces it rather than re-stamping",
+              "primary_key": false,
+              "type": "INTEGER"
+            }
+          ],
+          "foreign_key": [
+            {
+              "column": "tuning_id",
+              "table": "tuning",
+              "to": "id"
+            }
+          ],
+          "index": [],
+          "kind": "table",
+          "name": "materialized_tuning_instance",
+          "note": "The binder: names one materialization of one tuning, and nothing else. Deliberately pure — every column added here is a column every future dynamic-tuning mechanism must reckon with.",
+          "sql": null
+        },
+        {
+          "column": [
+            {
+              "default": null,
+              "name": "materialized_tuning_instance_id",
+              "not_null": true,
+              "note": "which materialization this row belongs to",
+              "primary_key": true,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "note_number",
+              "not_null": true,
+              "note": "signed; dense tunings run well below the anchor",
+              "primary_key": true,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "freq",
+              "not_null": true,
+              "note": "hertz, strictly increasing with note number — the invariant nearest-note search rests on",
+              "primary_key": false,
+              "type": "REAL"
+            }
+          ],
+          "foreign_key": [
+            {
+              "column": "materialized_tuning_instance_id",
+              "table": "materialized_tuning_instance",
+              "to": "id"
+            }
+          ],
+          "index": [
+            {
+              "column": [
+                "materialized_tuning_instance_id",
+                "note_number"
+              ],
+              "declared": false,
+              "name": "sqlite_autoindex_materialized_tuning_1",
+              "partial": false,
+              "unique": true
+            }
+          ],
+          "kind": "table",
+          "name": "materialized_tuning",
+          "note": "The frozen result: playback truth. Uniform across every kind, so consumers never branch on how a tuning was defined.",
+          "sql": null
+        }
+      ]
+    },
+    {
+      "name": "Scale — shapes, not keys",
+      "note": "A scale stores a shape and never a rooted result: the mask is relative to the tonic and the root is supplied at the use site, so \"major\" is one row serving every key and every 12-note tuning. Applicability is by modulus and is the only relationship enforced; whether a mask makes musical sense over a given tuning and root is idiomatic fit — advisory, never prohibited (R-509/R-510).",
+      "object": [
+        {
+          "column": [
+            {
+              "default": null,
+              "name": "id",
+              "not_null": false,
+              "note": "never reused, so an undone create can be redone",
+              "primary_key": true,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "name",
+              "not_null": true,
+              "note": "e.g. \"Mavila (7)\"",
+              "primary_key": false,
+              "type": "TEXT"
+            },
+            {
+              "default": null,
+              "name": "description",
+              "not_null": false,
+              "note": "prose; what the shape is and where it comes from",
+              "primary_key": false,
+              "type": "TEXT"
+            },
+            {
+              "default": null,
+              "name": "note_per_period",
+              "not_null": false,
+              "note": "the modulus a periodic mask belongs to: its structural parent, so one mask serves 12-ET and just intonation",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "tuning_id",
+              "not_null": false,
+              "note": "aperiodic scales only: absolute subsets belong to one tuning. Exactly one of this and note_per_period is set",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "mask",
+              "not_null": true,
+              "note": "JSON array: root-relative offsets when periodic, absolute note numbers when not",
+              "primary_key": false,
+              "type": "TEXT"
+            },
+            {
+              "default": null,
+              "name": "origin",
+              "not_null": false,
+              "note": "provenance (R-413), as for tunings and phrases",
+              "primary_key": false,
+              "type": "TEXT"
+            },
+            {
+              "default": null,
+              "name": "seed",
+              "not_null": false,
+              "note": "JSON recipe, for generated scales",
+              "primary_key": false,
+              "type": "TEXT"
+            },
+            {
+              "default": null,
+              "name": "parent_scale_id",
+              "not_null": false,
+              "note": "lineage, e.g. a mode recorded against the mask it rotates",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": "'{}'",
+              "name": "extra",
+              "not_null": true,
+              "note": "JSON escape valve",
+              "primary_key": false,
+              "type": "TEXT"
+            }
+          ],
+          "foreign_key": [
+            {
+              "column": "parent_scale_id",
+              "table": "scale",
+              "to": "id"
+            },
+            {
+              "column": "tuning_id",
+              "table": "tuning",
+              "to": "id"
+            }
+          ],
+          "index": [],
+          "kind": "table",
+          "name": "scale",
+          "note": "A named subset of pitch classes, or of note numbers when aperiodic.",
+          "sql": null
+        }
+      ]
+    },
+    {
+      "name": "Material — phrases, tracks, events, instances",
+      "note": "The note model (R-001): a phrase is the unit of material, an instance places it in time with its own non-destructive play parameters, and editing a phrase affects every instance of it. There is one kind of track (R-425), holding both direct events and instances.",
+      "object": [
+        {
+          "column": [
+            {
+              "default": null,
+              "name": "id",
+              "not_null": false,
+              "note": "never reused; instances reference it, undo restores it",
+              "primary_key": true,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "name",
+              "not_null": true,
+              "note": "user-facing; the library is browsed by it",
+              "primary_key": false,
+              "type": "TEXT"
+            },
+            {
+              "default": null,
+              "name": "length_tick",
+              "not_null": true,
+              "note": "the WINDOW: gates onsets and sets the loop stride. Events at or beyond it are dormant material — retained, silent — so narrowing is a non-destructive mute and widening reveals what was always there",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "tuning_id",
+              "not_null": false,
+              "note": "the tuning its note numbers are read in (R-418); NULL falls back to the project default",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "scale_id",
+              "not_null": false,
+              "note": "NULL is chromatic — there is no chromatic row (R-510)",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": "0",
+              "name": "root",
+              "not_null": true,
+              "note": "the pitch class the mask is rooted on; overall root semantics are still open (R-517)",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "origin",
+              "not_null": false,
+              "note": "recorded, generated, derived (R-413)",
+              "primary_key": false,
+              "type": "TEXT"
+            },
+            {
+              "default": null,
+              "name": "seed",
+              "not_null": false,
+              "note": "JSON: seed, generator version, parameters",
+              "primary_key": false,
+              "type": "TEXT"
+            },
+            {
+              "default": null,
+              "name": "parent_phrase_id",
+              "not_null": false,
+              "note": "the material this was derived from",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": "'{}'",
+              "name": "extra",
+              "not_null": true,
+              "note": "JSON escape valve; meter map and instrument binding live here until they earn columns (R-414)",
+              "primary_key": false,
+              "type": "TEXT"
+            }
+          ],
+          "foreign_key": [
+            {
+              "column": "parent_phrase_id",
+              "table": "phrase",
+              "to": "id"
+            },
+            {
+              "column": "scale_id",
+              "table": "scale",
+              "to": "id"
+            },
+            {
+              "column": "tuning_id",
+              "table": "tuning",
+              "to": "id"
+            }
+          ],
+          "index": [],
+          "kind": "table",
+          "name": "phrase",
+          "note": "A named container of events: the reusable unit of material (R-401).",
+          "sql": null
+        },
+        {
+          "column": [
+            {
+              "default": null,
+              "name": "id",
+              "not_null": false,
+              "note": "never reused",
+              "primary_key": true,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "phrase_id",
+              "not_null": true,
+              "note": "the root phrase that owns it; multi-track sub-phrases are deferred, not foreclosed",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "name",
+              "not_null": true,
+              "note": "user-facing track name",
+              "primary_key": false,
+              "type": "TEXT"
+            },
+            {
+              "default": null,
+              "name": "ord",
+              "not_null": true,
+              "note": "sibling order",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": "'{}'",
+              "name": "extra",
+              "not_null": true,
+              "note": "JSON escape valve",
+              "primary_key": false,
+              "type": "TEXT"
+            }
+          ],
+          "foreign_key": [
+            {
+              "column": "phrase_id",
+              "table": "phrase",
+              "to": "id"
+            }
+          ],
+          "index": [],
+          "kind": "table",
+          "name": "track",
+          "note": "An ordered container of events and instances (R-406). One kind only (R-425).",
+          "sql": null
+        },
+        {
+          "column": [
+            {
+              "default": null,
+              "name": "id",
+              "not_null": false,
+              "note": "never reused; an undone removal restores rows at their ids",
+              "primary_key": true,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "phrase_id",
+              "not_null": false,
+              "note": "container: inside a phrase, XOR",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "track_id",
+              "not_null": false,
+              "note": "directly on a track (R-406)",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": "'note'",
+              "name": "kind",
+              "not_null": true,
+              "note": "open vocabulary: note, cc, articulation, audio (R-402)",
+              "primary_key": false,
+              "type": "TEXT"
+            },
+            {
+              "default": null,
+              "name": "at_tick",
+              "not_null": true,
+              "note": "position in ticks at 5040 per quarter (R-003); seconds are derived only at the engine boundary",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": "0",
+              "name": "dur_tick",
+              "not_null": true,
+              "note": "a note crossing the window edge rings out rather than being truncated at every loop seam",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "note_number",
+              "not_null": false,
+              "note": "the pitch datum (R-002): a signed position in a tuning, not a frequency and not a MIDI note. NULL for unpitched kinds",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "velocity",
+              "not_null": false,
+              "note": "0..65535, the MIDI 2.0 domain; 7-bit values are translated at the MIDI boundary and the UI presents 0..127",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": "'{}'",
+              "name": "extra",
+              "not_null": true,
+              "note": "JSON escape valve; per-kind fields live here",
+              "primary_key": false,
+              "type": "TEXT"
+            }
+          ],
+          "foreign_key": [
+            {
+              "column": "track_id",
+              "table": "track",
+              "to": "id"
+            },
+            {
+              "column": "phrase_id",
+              "table": "phrase",
+              "to": "id"
+            }
+          ],
+          "index": [
+            {
+              "column": [
+                "phrase_id",
+                "at_tick"
+              ],
+              "declared": true,
+              "name": "event_phrase_id_at_tick_i",
+              "partial": true,
+              "unique": false
+            },
+            {
+              "column": [
+                "track_id",
+                "at_tick"
+              ],
+              "declared": true,
+              "name": "event_track_id_at_tick_i",
+              "partial": true,
+              "unique": false
+            }
+          ],
+          "kind": "table",
+          "name": "event",
+          "note": "One event: a note today, and a vocabulary open to controllers, articulation and audio without a schema change (R-402).",
+          "sql": null
+        },
+        {
+          "column": [
+            {
+              "default": null,
+              "name": "id",
+              "not_null": false,
+              "note": "never reused",
+              "primary_key": true,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "phrase_id",
+              "not_null": true,
+              "note": "the material being referenced",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "track_id",
+              "not_null": false,
+              "note": "container: on a track, XOR",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "parent_phrase_id",
+              "not_null": false,
+              "note": "nested inside a parent phrase (R-407). Cycles are rejected in core",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "at_tick",
+              "not_null": true,
+              "note": "where the instance starts in its container's time",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": "0",
+              "name": "offset_tick",
+              "not_null": true,
+              "note": "where the window starts *within the material* — Vision's \"play bars 8 to 16 of 32\"",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "length_tick",
+              "not_null": false,
+              "note": "the instance's own length, independent of the phrase's (R-405); NULL means the natural extent of loop_count iterations",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": "1",
+              "name": "loop_count",
+              "not_null": true,
+              "note": "repetitions; the stride is the phrase's window length",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": "0",
+              "name": "transpose",
+              "not_null": true,
+              "note": "chromatic transpose in note numbers, read in the material's tuning (R-423). Degree transposition is a separate, scale-relative verb",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": "0",
+              "name": "mute",
+              "not_null": true,
+              "note": "non-destructive silence",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": "'{}'",
+              "name": "extra",
+              "not_null": true,
+              "note": "JSON escape valve; articulation template and timbre arc land here",
+              "primary_key": false,
+              "type": "TEXT"
+            }
+          ],
+          "foreign_key": [
+            {
+              "column": "parent_phrase_id",
+              "table": "phrase",
+              "to": "id"
+            },
+            {
+              "column": "track_id",
+              "table": "track",
+              "to": "id"
+            },
+            {
+              "column": "phrase_id",
+              "table": "phrase",
+              "to": "id"
+            }
+          ],
+          "index": [
+            {
+              "column": [
+                "phrase_id"
+              ],
+              "declared": true,
+              "name": "phrase_instance_phrase_id_i",
+              "partial": false,
+              "unique": false
+            },
+            {
+              "column": [
+                "track_id",
+                "at_tick"
+              ],
+              "declared": true,
+              "name": "phrase_instance_track_id_at_tick_i",
+              "partial": true,
+              "unique": false
+            }
+          ],
+          "kind": "table",
+          "name": "phrase_instance",
+          "note": "A placement of a phrase in time, carrying its own play parameters (R-404/405). All instances share the referenced material: edit the phrase and every instance follows.",
+          "sql": null
+        },
+        {
+          "column": [
+            {
+              "default": null,
+              "name": "id",
+              "not_null": false,
+              "note": "never reused",
+              "primary_key": true,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "phrase_id",
+              "not_null": true,
+              "note": "the phrase whose map this belongs to (R-414)",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "at_tick",
+              "not_null": true,
+              "note": "where the tempo takes effect",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "usec_per_quarter",
+              "not_null": true,
+              "note": "microseconds per quarter note: MIDI-exact and integral, so the model never accumulates float drift. Seconds are derived at the engine only",
+              "primary_key": false,
+              "type": "INTEGER"
+            }
+          ],
+          "foreign_key": [
+            {
+              "column": "phrase_id",
+              "table": "phrase",
+              "to": "id"
+            }
+          ],
+          "index": [],
+          "kind": "table",
+          "name": "tempo_point",
+          "note": "One point in a phrase's tempo map.",
+          "sql": null
+        }
+      ]
+    },
+    {
+      "name": "History — the only write path",
+      "note": "Model mutations are commands, and the journal records them in the same transaction as the rows they change (R-205). Undo does not rewind or delete entries; it appends a marker naming what it reversed. History therefore never lies, and the undo stack survives a restart for free.",
+      "object": [
+        {
+          "column": [
+            {
+              "default": null,
+              "name": "seq",
+              "not_null": false,
+              "note": "order of application",
+              "primary_key": true,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "gesture",
+              "not_null": true,
+              "note": "the undo unit; one gesture may hold several commands",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": "'command'",
+              "name": "kind",
+              "not_null": true,
+              "note": "a command entry, or a marker recording that a gesture was reversed or reapplied",
+              "primary_key": false,
+              "type": "TEXT"
+            },
+            {
+              "default": null,
+              "name": "target_gesture",
+              "not_null": false,
+              "note": "which gesture a marker refers to; NULL on command entries",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "ts",
+              "not_null": true,
+              "note": "epoch milliseconds",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "command",
+              "not_null": false,
+              "note": "the command's name, denormalized so history is filterable in plain SQL (\"every set_tempo ever\")",
+              "primary_key": false,
+              "type": "TEXT"
+            },
+            {
+              "default": null,
+              "name": "redo",
+              "not_null": false,
+              "note": "JSON: the RESOLVED command, with executor-assigned ids and timestamps filled in, so replay reproduces exactly and never renumbers",
+              "primary_key": false,
+              "type": "TEXT"
+            },
+            {
+              "default": null,
+              "name": "undo",
+              "not_null": false,
+              "note": "JSON: the inverse commands, computed when the command ran because removed rows cannot be re-derived later",
+              "primary_key": false,
+              "type": "TEXT"
+            }
+          ],
+          "foreign_key": [],
+          "index": [
+            {
+              "column": [
+                "gesture"
+              ],
+              "declared": true,
+              "name": "journal_gesture_i",
+              "partial": false,
+              "unique": false
+            }
+          ],
+          "kind": "table",
+          "name": "journal",
+          "note": "Append-only command history. Rows are never updated or deleted.",
+          "sql": null
+        },
+        {
+          "column": [
+            {
+              "default": null,
+              "name": "id",
+              "not_null": false,
+              "note": "waypoint identity; nothing references it yet",
+              "primary_key": true,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "journal_seq",
+              "not_null": true,
+              "note": "history is folded up to here",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "ts",
+              "not_null": true,
+              "note": "epoch milliseconds",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "state",
+              "not_null": false,
+              "note": "reserved for the R-203 JSON at that point, for coarse time travel",
+              "primary_key": false,
+              "type": "TEXT"
+            }
+          ],
+          "foreign_key": [],
+          "index": [],
+          "kind": "table",
+          "name": "snapshot",
+          "note": "A compaction waypoint. Dormant: the retention policy is keep-everything, so nothing writes here yet (core-01). Present because trimming, if it ever happens, must leave a marker saying history before this point is gone.",
+          "sql": null
+        }
+      ]
+    },
+    {
+      "name": "Realization — the executable specification",
+      "note": "The view is the model's specification (§6f-bis): any optimized replacement must match it, and it remains the oracle after it stops being the implementation. Structural laws are what make it well-defined — the cycle prohibition is its termination guarantee.",
+      "object": [
+        {
+          "column": [
+            {
+              "default": null,
+              "name": "track_id",
+              "not_null": false,
+              "note": "",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "kind",
+              "not_null": false,
+              "note": "",
+              "primary_key": false,
+              "type": "TEXT"
+            },
+            {
+              "default": null,
+              "name": "at_tick",
+              "not_null": false,
+              "note": "",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "dur_tick",
+              "not_null": false,
+              "note": "",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "note_number",
+              "not_null": false,
+              "note": "",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "velocity",
+              "not_null": false,
+              "note": "",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "tuning_id",
+              "not_null": false,
+              "note": "",
+              "primary_key": false,
+              "type": "INTEGER"
+            },
+            {
+              "default": null,
+              "name": "phrase_instance_id",
+              "not_null": false,
+              "note": "",
+              "primary_key": false,
+              "type": "INT"
+            }
+          ],
+          "foreign_key": [],
+          "index": [],
+          "kind": "view",
+          "name": "v_realized",
+          "note": "The arrangement as it will actually sound: direct events on a track, unioned with events reached through an instance, with placement, looping, windowing and transposition applied.  The window gates ONSETS. An event starting outside [offset, offset + length) is dormant material, and a note whose duration crosses the window edge rings out rather than being cut at every loop seam.",
+          "sql": "CREATE VIEW v_realized AS\nSELECT e.track_id            AS track_id,\n       e.kind                AS kind,\n       e.at_tick             AS at_tick,\n       e.dur_tick            AS dur_tick,\n       e.note_number         AS note_number,\n       e.velocity            AS velocity,\n       ph.tuning_id          AS tuning_id,\n       NULL                  AS phrase_instance_id\nFROM event e\nJOIN track t   ON t.id = e.track_id\nJOIN phrase ph ON ph.id = t.phrase_id\nWHERE e.track_id IS NOT NULL\nUNION ALL\nSELECT i.track_id,\n       e.kind,\n       i.at_tick + (l.value - 1) * p.length_tick + (e.at_tick - i.offset_tick),\n       e.dur_tick,\n       e.note_number + i.transpose,\n       e.velocity,\n       p.tuning_id,\n       i.id\nFROM phrase_instance i\nJOIN phrase p ON p.id = i.phrase_id\nCROSS JOIN generate_series(1, i.loop_count) l  -- a correlated table-valued argument: an\nJOIN event e ON e.phrase_id = i.phrase_id\nWHERE i.track_id IS NOT NULL\n  AND i.mute = 0\n  AND e.at_tick >= i.offset_tick\n  AND e.at_tick - i.offset_tick < p.length_tick\n  AND (l.value - 1) * p.length_tick + (e.at_tick - i.offset_tick)\n      < COALESCE(i.length_tick, i.loop_count * p.length_tick)"
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "generated": true,
+    "generator": "cargo xtask schema",
+    "schema_version": 1,
+    "source": "src/rust/store/src/schema.sql",
+    "viewer": "revision_schema.html"
+  }
+}

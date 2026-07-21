@@ -1,1 +1,4 @@
 /target
+
+# Renders written beside a failing screenshot reference for comparison.
+testdata/**/*.actual.png

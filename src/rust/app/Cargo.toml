@@ -5,3 +5,7 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 publish = false
+
+[dependencies]
+rev-ui-mech = { path = "../ui_mech" }
+rev-ui-kit = { path = "../ui_kit" }

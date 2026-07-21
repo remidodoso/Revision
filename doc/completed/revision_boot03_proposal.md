@@ -1,6 +1,9 @@
 # boot-03 proposal — testing stack
 
-**Status: checkpoint proposal, awaiting approval.** Covers the grown scope from the
+**Status: approved and implemented 2026-07-19.** Retained as the record of what was
+decided and why; the plan (`revision_plan.json`, boot-03) records completion.
+
+*Original header:* **checkpoint proposal, awaiting approval.** Covers the grown scope from the
 plan: test frameworks, golden-master harness, TMON kill-test scripting, bench
 framework, soak/deadline harness placement, and the perf ledger format. Placement
 policy (sibling test modules, umbrella integration binaries, `#[ignore]` for device

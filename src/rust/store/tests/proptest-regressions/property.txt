@@ -1,0 +1,12 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 0ce5dabad0c18f5f96e279f914d5f90b88fad1ee358e4a384c98dd7c60ad51eb # shrinks to op = [SetTuning { phrase: 0, sixteen: true }]
+cc 3ebf0369b891c8c32b4c11229d16819103f14e0fc8468784ee03ee709ec600da # shrinks to op = [Undo, AddEvent { phrase: 0, note: 48, beat: 0 }]
+cc 880c73fd62b97a5080341f7a24a0e7acc99b655ea763ef8f7a0834257334aae9 # shrinks to op = [Undo, CreatePhrase, Redo]
+cc 7a5ed624c776a1c4e6d0838f249727a7985e7a99ef9c083603ddab3dba69de73 # shrinks to op = [Undo, CreatePhrase, CreateInstance { phrase: 0, beat: 0 }]
+cc bc16987866514cecb2c2dc1bc7f36b4c51a19bd3a0cbc5bee5c6abdc97597c4b # shrinks to op = [Undo, Undo, CreatePhrase, CreatePhrase, SetTuning { phrase: 0, sixteen: true }]
+cc f7ff9e70dfc7ab7f50db85ffcb055a47cc5516054ca0da996e361c52c1f530fe # shrinks to op = [AddEvent { phrase: 0, note: 48, beat: 0 }, Undo, CreatePhrase, RemoveFirstEvent { phrase: 0 }, RemoveFirstEvent { phrase: 2 }, CreatePhrase]

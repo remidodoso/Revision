@@ -5,3 +5,28 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 publish = false
+
+# Every external UI dependency is confined to this crate (ui-01 §6): rev-ui-kit
+# depends on rev-ui-mech alone, so the kit cannot name a native handle, let alone
+# reach one — and a browser backend later replaces exactly one crate.
+[dependencies]
+winit.workspace = true
+softbuffer.workspace = true
+tiny-skia.workspace = true
+cosmic-text.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+rev-testkit = { path = "../testkit" }
+
+# One umbrella integration binary per crate: N test files as N binaries link N
+# times; the umbrella links once (coding standard, Tests).
+[[test]]
+name = "it"
+path = "tests/it/main.rs"
+
+# Not criterion: this answers one question (where the shadow path's time goes)
+# and prints it. Perf tracks, never gates.
+[[bench]]
+name = "blur"
+harness = false

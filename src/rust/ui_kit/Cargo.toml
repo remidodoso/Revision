@@ -5,3 +5,14 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 publish = false
+
+# rev-ui-mech and nothing else. See ui-01 §6.
+[dependencies]
+rev-ui-mech = { path = "../ui_mech" }
+
+[dev-dependencies]
+rev-testkit = { path = "../testkit" }
+
+[[test]]
+name = "it"
+path = "tests/it/main.rs"

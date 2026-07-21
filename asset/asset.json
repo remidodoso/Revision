@@ -1,0 +1,119 @@
+{
+  "meta": {
+    "purpose": "Bundled non-crate assets. cargo-deny audits crates only and cannot see anything here; this manifest is the other half of R-1514's attribution document, and R-1515 credits its authors by name in the About view.",
+    "rule": "Assets come from upstream project releases, never from a service API serving silently-updated subsets. Every entry records source, version, checksum, licence, and author.",
+    "reserved_font_name": "Where declared, OFL clause 3 forbids using the reserved name in a Modified Version. Subsetting is a modification. Nothing here is modified; if that changes, the derivative must be renamed.",
+    "updated": "2026-07-20",
+    "checkpoint": "ui-01 §13.2"
+  },
+  "entry": [
+    {
+      "path": "asset/font/SourceSans3-Regular.ttf",
+      "kind": "font",
+      "role": "ui",
+      "weight": "regular",
+      "style": "normal",
+      "family": "Source Sans 3",
+      "author": "Adobe (Paul D. Hunt)",
+      "source": "https://github.com/adobe-fonts/source-sans/releases/tag/3.052R",
+      "version": "3.052R",
+      "license": "OFL-1.1",
+      "license_file": "asset/font/SourceSans3-OFL.md",
+      "reserved_font_name": "Source",
+      "sha256": "4644c81b86ec9caaa76b634889968ed3c4f4f52f054855933acc7c2b21e53b0f",
+      "modified": false
+    },
+    {
+      "path": "asset/font/SourceSans3-It.ttf",
+      "kind": "font",
+      "role": "ui",
+      "weight": "regular",
+      "style": "italic",
+      "family": "Source Sans 3",
+      "author": "Adobe (Paul D. Hunt)",
+      "source": "https://github.com/adobe-fonts/source-sans/releases/tag/3.052R",
+      "version": "3.052R",
+      "license": "OFL-1.1",
+      "license_file": "asset/font/SourceSans3-OFL.md",
+      "reserved_font_name": "Source",
+      "sha256": "192afd78f0f54a3c69eaf02d43f4d9a821e9d6110e41d3d25d61a7385cd580e4",
+      "modified": false
+    },
+    {
+      "path": "asset/font/SourceSans3-Bold.ttf",
+      "kind": "font",
+      "role": "ui",
+      "weight": "bold",
+      "style": "normal",
+      "family": "Source Sans 3",
+      "author": "Adobe (Paul D. Hunt)",
+      "source": "https://github.com/adobe-fonts/source-sans/releases/tag/3.052R",
+      "version": "3.052R",
+      "license": "OFL-1.1",
+      "license_file": "asset/font/SourceSans3-OFL.md",
+      "reserved_font_name": "Source",
+      "sha256": "9214b9d95e4231c609802815c2646c98174e2102d0d37f88978a7f8e71006e6a",
+      "modified": false
+    },
+    {
+      "path": "asset/font/SourceSans3-BoldIt.ttf",
+      "kind": "font",
+      "role": "ui",
+      "weight": "bold",
+      "style": "italic",
+      "family": "Source Sans 3",
+      "author": "Adobe (Paul D. Hunt)",
+      "source": "https://github.com/adobe-fonts/source-sans/releases/tag/3.052R",
+      "version": "3.052R",
+      "license": "OFL-1.1",
+      "license_file": "asset/font/SourceSans3-OFL.md",
+      "reserved_font_name": "Source",
+      "sha256": "7978291fc1bf314db887e0366853b33c5cf2e964c7b95cfb9ce403a6ec46a842",
+      "modified": false
+    },
+    {
+      "path": "asset/font/JetBrainsMonoNL-Regular.ttf",
+      "kind": "font",
+      "role": "numeric",
+      "weight": "regular",
+      "style": "normal",
+      "family": "JetBrains Mono NL",
+      "author": "The JetBrains Mono Project Authors",
+      "source": "https://github.com/JetBrains/JetBrainsMono/releases/tag/v2.304",
+      "version": "2.304",
+      "license": "OFL-1.1",
+      "license_file": "asset/font/JetBrainsMono-OFL.txt",
+      "reserved_font_name": null,
+      "sha256": "fb3b2575d7b0657359707993288f12a7360344d39387bb26050e276d61f6bd2a",
+      "modified": false
+    },
+    {
+      "path": "asset/font/JetBrainsMonoNL-Bold.ttf",
+      "kind": "font",
+      "role": "numeric",
+      "weight": "bold",
+      "style": "normal",
+      "family": "JetBrains Mono NL",
+      "author": "The JetBrains Mono Project Authors",
+      "source": "https://github.com/JetBrains/JetBrainsMono/releases/tag/v2.304",
+      "version": "2.304",
+      "license": "OFL-1.1",
+      "license_file": "asset/font/JetBrainsMono-OFL.txt",
+      "reserved_font_name": null,
+      "sha256": "0198e841824025f8876e5c297f0b9b497ee8d6eb9969710a3328e1303f996ec3",
+      "modified": false
+    },
+    {
+      "path": "asset/font/SourceSans3-OFL.md",
+      "kind": "license",
+      "covers": "Source Sans 3",
+      "sha256": "56af9b9c6715597e458284a474dc118a50a4150e9d547c70f7b4a33c3e6a9328"
+    },
+    {
+      "path": "asset/font/JetBrainsMono-OFL.txt",
+      "kind": "license",
+      "covers": "JetBrains Mono NL",
+      "sha256": "30f0c136e3c88e422d0791acd97238870f9054a9729bc34cf2ff0d4ed8cac4ad"
+    }
+  ]
+}

@@ -33,6 +33,15 @@ break the viewer's requirement rollovers).
    Within an approved design, routine implementation detail proceeds without
    re-approval. When in doubt, ask — a wasted question is cheaper than a wasted
    subsystem.
+
+   **Where proposals live.** An in-flight proposal — drafted, under discussion, or
+   approved but not yet implemented — sits in `doc/` as
+   `revision_<item>_proposal.md`. **Once its plan item reaches `complete`, move it to
+   `doc/completed/`** in the same gesture, correct its status header to what actually
+   happened, and repoint the plan item's link (`completed/revision_<item>_proposal.md`).
+   Proposals are never deleted: they are the record of what was decided and why, and
+   they carry the deviations-from-proposal notes that the code itself does not. `doc/`
+   therefore shows what is live; `doc/completed/` is the archive.
 3. **Orthogonality is absolute:** never modify Notorolla code or documents. Read-only
    visits (e.g., the Padlington inventory) are fine.
 4. **Commits are the user's, alone, always.** Never commit, never suggest you will.

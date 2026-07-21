@@ -1,6 +1,10 @@
 # core-01 proposal — schema DDL, command vocabulary, journal format
 
-**Status: decisions 1–8 ruled by user 2026-07-19** (4 amended to 16-bit
+**Status: approved and implemented; core-01 closed 2026-07-19** (the requirements
+edit list noted below was applied the same day). Implemented by core-02. Retained as
+the record of what was decided and why.
+
+*Original header:* **decisions 1–8 ruled by user 2026-07-19** (4 amended to 16-bit
 velocity); **phrase pass ruled and folded 2026-07-19** (scale binding on
 phrase; window semantics for length + `offset_tick`; make/unmake as composite
 gestures; R-414 attributes stay in `extra`; R-415 v0 fallbacks;

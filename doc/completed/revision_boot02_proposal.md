@@ -1,7 +1,10 @@
 # boot-02 proposal — workspace layout, toolchain, CI skeleton
 
-**Status: checkpoint proposal, awaiting approval.** Nothing here is implemented until
-approved (getstarted, ground rule 2). Decisions already settled in discussion are
+**Status: approved and implemented 2026-07-19.** Retained as the record of what was
+decided and why; the plan (`revision_plan.json`, boot-02) records completion.
+
+*Original header:* **checkpoint proposal, awaiting approval.** Nothing here is
+implemented until approved (getstarted, ground rule 2). Decisions already settled in discussion are
 restated for completeness and marked *(settled)*; genuinely open knobs are gathered
 in §8.
 

@@ -4,6 +4,17 @@
 # dependency's checkpoint, never silently.
 
 [licenses]
+# Explicit denial, not mere omission: BSD-4-Clause's advertising clause is the one
+# trap in the permissive family, and denying it by name records that we looked.
+deny = ["BSD-4-Clause", "BSD-4-Clause-UC"]
+
+# Where a dependency offers a choice, the arm adopted is recorded, not inferred
+# (coding standard, "Dependencies & licensing"):
+#   self_cell  "Apache-2.0 OR GPL-2.0-only"  -> Apache-2.0 adopted, GPL declined.
+# In an SPDX expression OR is a choice and AND is not; both arms of an AND apply.
+#
+# Bundled assets (fonts, icons) are not crates and are invisible here: they are
+# declared in the asset manifest and audited by `cargo xtask license` (R-1514).
 allow = [
   "MIT",
   "Apache-2.0",

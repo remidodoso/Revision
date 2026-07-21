@@ -31,6 +31,11 @@ Tags: [P1] initial scope · [P2] subsequent · [Later] undetermined future ·
   isolated behind a defined interface.
 - R-103 [P1]. Where embedded scripting is provided, the language shall be ECMAScript.
 - R-104 [Arch]. Core model logic shall be platform-independent and compilable to WASM.
+- R-105 [Arch]. Hardware compute acceleration (GPU or equivalent) may be used for
+  precomputation, offline rendering, and analysis. The CPU implementation is
+  normative. Any result whose determinism is required (R-706, R-1402, R-1503) is
+  either computed on the CPU or computed once and stored in the project. No
+  accelerated path exists in the real-time audio callback.
 
 ## 3. Formats & persistence
 
@@ -318,6 +323,16 @@ Voices, parameters, behavior:
 - R-717 [P2]. Hosted plugin instruments and effects (CLAP, VST3) via an isolated
   bridge process. Detailed requirements deferred to a hosting section.
 
+Scope of processing:
+
+- R-718 [Later]. Pitch tracking and pitch manipulation of monophonic material are
+  anticipated.
+- R-719 [P2]. Spatial processing beyond stereo is provided by hosted plugins (R-717).
+  Built-in spatial functions, if any, are limited to techniques free of active patent
+  claims.
+- R-720. Source separation and audio restoration are out of scope. Such material is
+  prepared by other tools before import.
+
 ## 9. Recording
 
 Shared transport behavior (domain-agnostic):
@@ -441,6 +456,76 @@ Views:
   R-1206), receiving the same layout, stepping, takeover, and mapping machinery
   (R-918). Feedback applies where the profile declares state query support. Parameter
   edits to external devices are journaled; state is re-sendable.
+
+Windows, workspaces, and documents:
+
+- R-921 [Arch]. A project has three independent properties: **open** (a live handle
+  exists), **active** (attached to the engine — owns the transport, receives MIDI
+  input, produces sound), and **editable** (read-write or read-only). Any number of
+  projects may be open; at most one is active.
+- R-922 [Arch]. Activation is explicit. No project becomes active as a consequence of
+  window focus, view focus, or pointer activity.
+- R-923 [P1]. The identity of the active project is displayed wherever transport or
+  record state is displayed.
+- R-924 [Arch]. The target of an editing verb is the project of the focused view,
+  which is not necessarily the active project.
+- R-925 [P1]. Selection is per-project. R-909 holds within a project; a selection does
+  not span projects.
+- R-926 [P2]. Several projects may be open simultaneously. Inactive projects remain
+  editable and journaled.
+- R-927 [P2]. A project may be opened read-only: browsed, auditioned, and copied from
+  without being activated. A project's mode may be changed without closing the
+  application.
+- R-928 [Arch]. Views are placement-agnostic. A view does not know whether it occupies
+  a window, a pane, or a tab, and holds no window state. Placement is assigned to a
+  view, never chosen by it.
+- R-929 [Arch]. Window and pane placement are one structure: a tree whose leaves hold
+  views, whose interior nodes are splits and tab stacks, and whose roots are windows.
+  Splitting, docking, tabbing, and tear-off as user operations are [P2].
+- R-930 [Arch]. Every view instance is bound either to the active project (*following*)
+  or to a designated project (*pinned*). A view holds its state per project; changing a
+  binding does not discard state.
+- R-931 [P1]. A view whose subject is a specific object is pinned by that subject; a
+  view whose subject is the application is following. The binding is user-selectable
+  for views whose subject is a project as a whole.
+- R-932 [Arch]. Window and pane layout is never journaled and never undoable.
+- R-933 [P1]. Layout state has two layers: workspace state (window and pane geometry,
+  view roster, bindings) is application-level and savable as named workspaces (R-912);
+  per-view display state (scroll, zoom, visible content) is stored in the project and
+  restored into whichever views bind to it.
+- R-934 [P1]. Closing a project closes the views pinned to it. A following view
+  displays an empty state when no project is active.
+
+Spectral waveform overview:
+
+- R-935 [P2]. Audio waveform overviews are spectrally colored: the display color at
+  each horizontal position encodes the frequency content of the material there.
+- R-936 [P2]. The overview is computed by band analysis of the source material — low,
+  mid, and high bands mapped to red, green, and blue — with color expressing spectral
+  balance and brightness expressing level. Band edges, normalization, and mapping are
+  adjustable; defaults are chosen for legibility at a glance.
+- R-937 [P2]. Overview analysis is cached alongside the material it describes and
+  recomputed only when that material changes.
+
+Interaction authority:
+
+- R-939 [Arch]. Where these requirements are silent on interaction behaviour, the
+  *Macintosh Human Interface Guidelines* (Apple, 1992) are the default authority —
+  for behaviour and principles, not for appearance, menu-bar architecture, or its
+  document model. Precedence: these requirements, then the coding standard and skin
+  inventory, then that document, then invention — and an invention is recorded in
+  `revision_hig_inventory.md` with its reason.
+- R-940 [Arch]. Departures from R-939's authority are deliberate and recorded, not
+  incidental. The standing departures are: no unsaved state and therefore no
+  Save/Revert model (R-201); journaled unlimited undo rather than single-level
+  (R-205); and stricter modelessness than its dialog chapters allow (R-905, R-906).
+
+Interface scale:
+
+- R-938 [P1]. The interface provides a user-settable scale, applied uniformly to all
+  interface geometry and independent of platform DPI, with which it composes. Scale
+  is workspace state (R-933) and is settable per window. Content zoom within a view
+  is a separate control and is unaffected by it.
 
 ## 11. Performance
 
@@ -695,6 +780,19 @@ Development experience:
 - R-1407 [Later]. DAWproject support, pending evaluation.
 - R-1408. Cross-references: tuning interchange per R-507 (Scala); complete project
   text interchange per R-203 (JSON).
+- R-1409 [Arch]. The unit of interchange is a **fragment**: a selection together with
+  the closure of everything it depends on. Drag, clipboard, file export and import,
+  and script output all carry fragments.
+- R-1410 [P1]. Importing a fragment is a single journaled gesture in the receiving
+  project.
+- R-1411 [Arch]. Transfer between projects is a copy. No operation is atomic across
+  two projects.
+- R-1412 [Arch]. Shareable definitions — tunings, scales, and comparable named
+  resources — carry a content identity derived from their defining content, excluding
+  name and description. Import reuses a content-identical definition rather than
+  duplicating it.
+- R-1413 [P2]. Material may be auditioned before import, under either its own context
+  or the receiving project's context (tuning, tempo, instrument).
 
 ## 16. Non-functional
 
@@ -734,3 +832,11 @@ Development experience:
   default instrument sounding, retrospective capture running (R-814) — before and
   regardless of any project decision. Material played before a project exists is
   retained and attachable to a new or existing project.
+- R-1514 [P1]. Distributed builds carry a complete third-party attribution document:
+  every dependency and every bundled asset, its licence, and — where the licence
+  offers a choice — the terms adopted. It is generated from the dependency tree and
+  the bundled-asset manifest, never maintained by hand.
+- R-1515 [P1]. The application provides an About view that credits by name the authors
+  of bundled creative work — typefaces, icon sets, and comparable assets —
+  independent of whether their licence requires attribution. The complete third-party
+  attribution document (R-1514) is reachable from it.

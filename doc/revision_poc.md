@@ -19,9 +19,53 @@ A Windows desktop application that:
 The PoC honors every [Arch] requirement in miniature. Its code is intended as the
 product's actual foundation, not a throwaway — the [Arch] discipline is the point.
 
+## Two sources, and what each governs (2026-07-20)
+
+The interface has **two design sources, and they do not overlap**:
+
+- **Vision's Control Bar supplies function** — which controls exist, what they do,
+  the behavioural laws, and its layout where the layout was genuinely good. It is
+  **not** a visual reference. Its monochrome-with-occasional-colour look, its cryptic
+  abbreviations, and its modality were 1998 constraints wearing the costume of
+  decisions; none of them are inherited. This is emphatically not a pixel-for-pixel
+  reconstruction.
+- **`../Notorolla/future/ui_skin` supplies the visual language** — the retained,
+  permanently-kept instrument exhibits (seven instruments, decisions marked LOCKED)
+  are the living spec for how Revision *looks*, Control Bar included. One skin
+  across the product, not a period transport bolted to modern panels.
+  (`../Notorolla` remains strictly read-only; the spec is read there and reimplemented
+  here.)
+
+**What transfers from Vision** (behaviour, all still right): always-active controls
+that never steal focus or raise their window; a Counter editable during playback with
+the transport never stopping for an edit; loop as the never-stop workflow with
+loop-record keep/discard; locators set on the fly; the record light's three states;
+and a horizontal transport strip, because a transport reads left to right.
+
+**What the exhibits contribute, and what they do not.** Their **role-hue system**
+(LFO rust / Oscillator orange / Filter green / Envelope cyan / Effects blue, with an
+absent role leaving a deliberate gap in the spectrum) is a *parameter* taxonomy and
+does not transfer to a transport, which has no roles — inventing one would be
+cargo-culting the mechanism instead of the idea. What does carry across is the
+role-independent vocabulary: amber readouts with tabular figures in fixed-width
+fields, the red record accent, blue for active/armed, the panel-lightness scalar, and
+the machined cap and recessed slot treatment. **One skin, one set of primitives, two
+semantic colour systems layered on top** — roles for parameters, states for transport.
+
+**A third source, for behaviour.** Vision says *what controls exist*, the exhibits
+say *how they look*, and the **Macintosh Human Interface Guidelines (1992)** say
+*how they behave* wherever our requirements are silent (R-939). Inventoried in
+`revision_hig_inventory.md`; departures are recorded, not incidental (R-940).
+
+**Consequence for the paint list:** the exhibits are built from linear gradients,
+inset shadows, drop shadows and glow. `rev-ui-mech` currently paints flat fills,
+strokes, paths and text. The vocabulary has to grow before either surface can be
+drawn faithfully — that is ui-03's first step, not a later polish pass.
+
 ## Why the Control Bar slice
 
-(Consolidated from revision.md §6c.)
+(Consolidated from revision.md §6c. Read it as the **functional** census — the
+archetypes and behaviours to reproduce — not as a description of how they look.)
 
 - **A complete widget-archetype census** in one strip: pop-ups (Record Mode, Current
   Sequence/Track, Thru Instrument, Sync, Marker); a tri-state button (Record:
@@ -62,8 +106,8 @@ revision.md §6):
 | `engine` | cpal duplex, engine-owned clock, scheduler, voices, graph runtime (Web-Audio-semantics nodes), zero-alloc RT | R-301–305, R-704, R-1501 |
 | `store` | rusqlite, journal, snapshots, TMON behavior | R-201–205, R-808 |
 | `midi` | midir wrapper: enumeration, driver-boundary timestamps, thru | R-601–607 |
-| `ui-mech` | winit + wgpu + cosmic-text; the mechanism contract | §6b; R-907 |
-| `ui-kit` | control-skin widgets | R-712 rendering side |
+| `ui-mech` | winit + softbuffer + tiny-skia + cosmic-text; the mechanism contract | §6b; R-907, R-938 |
+| `ui-kit` | widgets in the Notorolla-exhibit skin | R-712 rendering side |
 | `app` | composition root: wiring, command dispatch, view state | — |
 
 **Threads:** RT audio callback (zero-alloc), UI/main, MIDI callbacks, async store
