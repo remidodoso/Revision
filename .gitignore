@@ -2,3 +2,6 @@
 
 # Renders written beside a failing screenshot reference for comparison.
 testdata/**/*.actual.png
+
+# Local reference material, kept out of the public repo (e.g. the Vision manual).
+/no_git

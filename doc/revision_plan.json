@@ -12,8 +12,8 @@
  },
  "now": [
   {
-   "ts": "2026-07-21",
-   "text": "The PoC's four headline features all stand and are accepted: transport shape, a ported voice, MIDI record/replay, and the degree-native tuning swap. The whole recording arc (rec-01/02/03) is complete. Known-benign CI reds on Linux jobs (lint/cross-linux need apt libasound2-dev + X11/Wayland dev libs; license needs deny.toml migrated for cargo-deny 0.20 - natural fold-in to misc-03); the Windows test job incl. the tmon kill-gate is green. Bigger open item: the arrangement/multi-lane view that makes multi-track recording legible (rev-studio prototyped a slice of ui-04's transport wiring)."
+   "ts": "2026-07-22",
+   "text": "The Player has begun. ui-08 (the Player + Control Bar drivable workspace mockup) is BUILT, at verifying: rev-player opens a Control Bar palette + multiple Player windows (our Tracks Window), a working transport that plays the focused Playable (real sound, per-window playhead, pin), a live two-pane split, the column model (show/hide/resize), and a Track Overview with varied blocks incl. alias. App-painted first (like rev-studio before ui-04); gate green, 485 tests. Awaiting the user's eyeball (cargo run -p rev-app --bin rev-player). Next: ui-09 (wire to model), ui-10 (Grid Editor), ui-11."
   }
  ],
  "tracks": [
@@ -1419,6 +1419,114 @@
     }
    ],
    "created": "2026-07-21",
+   "completed": null
+  },
+  {
+   "id": "ui-08",
+   "title": "[checkpoint] The Player and Control Bar - drivable workspace mockup",
+   "kind": "major",
+   "track": "ui",
+   "status": "verifying",
+   "depends_on": [
+    "ui-03",
+    "ui-07"
+   ],
+   "requirements": [
+    "R-408",
+    "R-712",
+    "R-907",
+    "R-939"
+   ],
+   "links": [
+    {
+     "doc": "revision_player_proposal.md",
+     "anchor": "Decisions to approve"
+    }
+   ],
+   "plan": "A drivable rendition of Vision's Tracks Window (Ch.25) plus a Control Bar palette, on the real Kit/Pane/Host - a MIXTURE of working and mocked, not a pure mockup. Working: the transport (reuse rev-studio's Start/Stop/space driving the engine) genuinely plays the FOCUSED Playable, so the multi-window story is a real test, not a fake. Mocked (fake data shaped to the eventual real queries, so wiring in ui-09 is a source swap not a rewrite): the Player's track rows and the Track Overview blocks. The Player: window shell, two-pane split (track columns | track overview) with a draggable divider and overview toggle, header strip (In/Out and Meter/Tempo/SeqLen counters, Display/Silence pop-ups, tool palette, cursor readout). New widgets expected: a track-list data-grid whose columns are variable, hideable, and reorderable; a pane splitter; the Arrow/Marquee/I-beam tool palette; a Track Overview block painter (ruler + varied fake lanes over a Pane - a held-note lane, an alias/reference block, a controller envelope). The Control Bar is a proper palette window (transport cluster, Counter, the always-active non-focus-stealing law R-907), re-housing rev-studio's strip. The whole is the early multi-window rig: several Players + the Control Bar palette, surfacing z-order/raise/activation policy (a document raises on click; the palette operates without stealing front - R-907/R-939) and proving space-plays-the-focused-Playable with each window keeping its own transport state. Skin is the real kit's; the screenshot is a layout reference, not a pixel target. The Control Bar's WIRED home stays ui-04.",
+   "verify": "Built app-side (like rev-studio prototyped ui-04): rev_app::player (the view core - column model, TrackRow/Block fixtures shaped for ui-09, the table + Track Overview painters) plus the rev-player binary (the multi-window workspace). Driveable and confirmed by build/clippy/tests: multi-window (a Control Bar palette + two Players, 'n' opens more, each backed by a distinct fixture phrase); the WORKING transport (space or Play plays the focused Playable with real sound, each Player keeping its own playhead, 'p' pins the target); the palette is WindowRole::Palette so it never steals front (R-907); the two-pane body with a live splitter drag; the table (fake rows, columns show/hide via 1-5, resize by header-edge drag, row select) sharing one vertical row grid with the overview; the overview (ruler, lane backgrounds, varied blocks incl. a distinct alias/reference block, playhead, wheel scroll + ctrl-zoom). 8 column-model unit tests (reorder/hide/resize/at_x/last-column-guard). Full gate green: fmt, clippy 0 warnings, filemap/plan current, 485 workspace tests. UI is eyeball-verified per the getstarted stage-4 rule (no UI automation); the sandbox could not launch the GUI to smoke it, so the visual/interaction confirmation is the user's. Honest deviations noted below.",
+   "notes": [
+    {
+     "ts": "2026-07-22",
+     "text": "Opened from the design discussion of 2026-07-22 (Vision Tracks Window survey, Notorolla Tile Player survey, and a model/mechanism survey - reference material in the gitignored no_git/). Settled in that discussion: the track is a pure agnostic container (R-425), instrument is an optional per-track DEFAULT routing hint (Notorolla's lane-instrument idea) not a track property; structured phrases play self-contained (placement imposes nothing; transforms apply as if baked, invalid combos drop via the compiler's unplayable path); playability is a capability not a window kind (Player, Grid Editor, and future things are all Playable), the transport binds to the focused Playable's phrase with an optional pin, and each Playable carries its own transport state. This item is the first cut: the window, drivable, fake data."
+    },
+    {
+     "ts": "2026-07-22",
+     "text": "Built. Deviations from the proposal, recorded because the code does not: (1) The Player is app-painted with a bare Pane for the overview, rather than the proposed 'table of kit widgets' - the same prototype-app-side-first path rev-studio took before ui-04; the column MODEL is a real reusable structure (rev_app::player::Columns, tested), so promoting the table (and the splitter and tool palette) into the ui_kit proper is a follow-on. Wiring to the store (ui-09) is still a source swap because the fixtures are shaped to the queries. (2) Column reorder is model-complete and tested but not yet wired to a header-drag gesture in the mockup (show/hide and resize are); reorder-by-drag is a small follow. (3) Both Vision 'info' areas cut on approval (top SMPTE Information toggle; bottom Expanded Info Area + Strip Chart) - block-parameter editing returns later as a modern inspector. (4) Skin is flat dark fills, not the full gradient treatment - a later polish pass. Try it: cargo run -p rev-app --bin rev-player; space plays the focused Player, n opens another, p pins, click between Players and confirm the palette does not steal front."
+    }
+   ],
+   "created": "2026-07-22",
+   "completed": null
+  },
+  {
+   "id": "ui-09",
+   "title": "The Player wired to the model",
+   "kind": "major",
+   "track": "ui",
+   "status": "planned",
+   "depends_on": [
+    "ui-08"
+   ],
+   "requirements": [
+    "R-406",
+    "R-407",
+    "R-411",
+    "R-424"
+   ],
+   "links": [],
+   "plan": "Swap the mockup's fake source for the store: track rows and overview blocks read real queries (a root phrase's tracks and its phrase-instances); the block painter renders real material; drilling into an alias/reference block opens a nested Player for the referenced phrase (InstanceContainer::ParentPhrase). Each Playable window carries its own transport state; the Control Bar (space) drives the focused Playable, with an optional pin. Hearing nested/structured phrases needs recursive realization - v_realized is single-level today - a separate core/sched item to be created when nested playback is wanted; the Player can show and navigate nesting without it.",
+   "verify": "",
+   "notes": [
+    {
+     "ts": "2026-07-22",
+     "text": "Deferred Player interaction, not built into the ui-08 mockup: drag-to-rearrange track ROWS (reorder existing tracks within a Player by dragging a row up/down). Pick it up next time we return to the Player window. Distinct from ui-11 (dropping phrases into lanes as blocks) — this reorders existing rows. The `Columns` model already has reorder() for columns; the row analogue is the missing piece."
+    }
+   ],
+   "created": "2026-07-22",
+   "completed": null
+  },
+  {
+   "id": "ui-10",
+   "title": "Grid Editor - editable phrase authoring",
+   "kind": "major",
+   "track": "ui",
+   "status": "planned",
+   "depends_on": [
+    "ui-06"
+   ],
+   "requirements": [
+    "R-401",
+    "R-403",
+    "R-417",
+    "R-712"
+   ],
+   "links": [],
+   "plan": "The content source for the Player, and a Playable in its own right: an editable phrase/grid editor extending the read-only roll (ui-06) - create, move, delete, resize notes over the Pane, degree-native (rows are scale degrees / tuning steps resolved through the tuning, not fixed semitones). Drives AddEvent/RemoveEvent plus a new per-note move/set verb so a drag is one undoable gesture. Mountable both as its own window (many instances at once) and as a pane. Its contents are Playable - space plays the focused editor's phrase standalone (R-417).",
+   "verify": "",
+   "notes": [],
+   "created": "2026-07-22",
+   "completed": null
+  },
+  {
+   "id": "ui-11",
+   "title": "Drag-to-arrange: phrases into the Player as blocks",
+   "kind": "major",
+   "track": "ui",
+   "status": "planned",
+   "depends_on": [
+    "ui-08",
+    "ui-10"
+   ],
+   "requirements": [
+    "R-404",
+    "R-405",
+    "R-409"
+   ],
+   "links": [],
+   "plan": "Author in the Grid Editor (or a library), drag a phrase into a Player lane at a beat -> CreatePhraseInstance (the command exists; the model side is done). The drag payload is a phrase_id - a reference, not a copy. Within-window drag first (existing implicit capture); then true cross-window drag - a Mech-level drag session that survives window boundaries (the drag-drop ui-01 declared a v0 omission). Preview==commit: a ghost block during the drag, the command on drop.",
+   "verify": "",
+   "notes": [],
+   "created": "2026-07-22",
    "completed": null
   }
  ]

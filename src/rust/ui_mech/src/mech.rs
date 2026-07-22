@@ -409,6 +409,19 @@ impl<H: Host> ApplicationHandler for Driver<H> {
             return; // event for a window we already closed
         };
 
+        // Only a pointer event lets the host express a cursor shape. Reconciling
+        // (and thus resetting) the cursor after other events — above all
+        // RedrawRequested, which fires on every repaint during a drag or while a
+        // transport plays — would clobber a live resize cursor with the default,
+        // so the resize shape survived only in the instants a move was firing.
+        let pointer_event = matches!(
+            &ev,
+            WindowEvent::CursorMoved { .. }
+                | WindowEvent::CursorLeft { .. }
+                | WindowEvent::MouseInput { .. }
+                | WindowEvent::MouseWheel { .. }
+        );
+
         // Translate the platform event into our vocabulary, updating per-window
         // state first so the host always observes a consistent Mech.
         let notice = match ev {
@@ -489,7 +502,10 @@ impl<H: Host> ApplicationHandler for Driver<H> {
         }
         // After dispatch, not after painting: a widget may request a cursor without
         // invalidating anything, and tying the request to a repaint would drop it.
-        self.apply_cursor(id);
+        // Only after a pointer event, though — see `pointer_event` above.
+        if pointer_event {
+            self.apply_cursor(id);
+        }
         self.settle(el);
     }
 }

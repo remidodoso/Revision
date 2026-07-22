@@ -54,6 +54,17 @@ Coding conventions live in **`revision_coding_standard.md`**. Its default is ord
 Rust convention for a project expected to grow large; the document records only
 deviations and decisions (naming, layout, file size, comments, test placement).
 
+**Human-interface behaviour** has two documents. `revision_hig_inventory.md` is the
+*source* — what the 1992 Apple HIG says, quoted and chapter-cited (R-939: it is the
+default authority where our requirements are silent; R-940: cite it, don't recall it).
+`revision_hig.md` is the *decisions register* — the concrete interaction rulings
+Revision has actually made (pointer shape, drag snap-back, palette focus, truncation,
+deliberate departures…). **Consult `revision_hig.md` before deciding any pointer /
+keyboard / feedback behaviour, and maintain it during HI work:** when you settle an
+interaction question, add the ruling, its grounding (a chapter/page, an R-number, or an
+honest "invention"), and where it lives in code. UI is eyeball-verified (stage 4), so
+this register is the only durable memory of these choices.
+
 ## Tools
 
 Useful development tools live in **`dev_utils/`** — small, standalone, standard-library

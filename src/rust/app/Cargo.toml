@@ -48,5 +48,11 @@ path = "src/bin/rec.rs"
 name = "rev-studio"
 path = "src/bin/studio.rs"
 
+# The Player + Control Bar drivable workspace mockup (ui-08): our rendition of
+# Vision's Tracks Window, multi-window, with a working transport.
+[[bin]]
+name = "rev-player"
+path = "src/bin/player.rs"
+
 [dev-dependencies]
 rev-testkit = { path = "../testkit" }

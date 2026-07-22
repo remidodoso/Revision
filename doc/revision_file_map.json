@@ -9,6 +9,7 @@
    ".git",
    ".gitignore",
    ".claude",
+   "no_git",
    ".nojekyll",
    "Cargo.lock",
    "LICENSE-APACHE",
@@ -69,7 +70,7 @@
   },
   {
    "path": "doc/",
-   "desc": "revision.md (rationale), requirements (R-numbers), poc plan, getstarted, coding standard, skin/HIG inventories, plan+schema+filemap docs",
+   "desc": "revision.md, requirements (R-numbers), poc plan, getstarted, coding standard, HIG inventory + decisions register, plan/schema/filemap docs",
    "generated": false
   },
   {
@@ -264,6 +265,21 @@
   {
    "path": "src/rust/app/src/bin/studio.rs",
    "desc": "rev-studio: throwaway record-onto-roll harness (rec-02). Transport strip over the live roll, two tracks, record light, live redraw",
+   "generated": false
+  },
+  {
+   "path": "src/rust/app/src/player.rs",
+   "desc": "the Player view core (ui-08): column model (reorder/hide/resize), fake TrackRow/Block fixtures shaped for ui-09, table + overview painters",
+   "generated": false
+  },
+  {
+   "path": "src/rust/app/src/player",
+   "desc": "Player column-model tests: candidate set, hide/reorder/resize, last-column guard, at_x hit-test, fixtures shaped for the painters",
+   "generated": false
+  },
+  {
+   "path": "src/rust/app/src/bin/player.rs",
+   "desc": "rev-player: Player + Control Bar workspace mockup (ui-08). Multi-window; a palette transport plays the focused Playable; per-window state",
    "generated": false
   },
   {

@@ -144,6 +144,28 @@ impl Shaped {
     }
 }
 
+/// A shaped-run cache key: everything that decides a run's layout except the
+/// text itself (which is the inner map's key, so a hit needs no allocation).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct ShapeKey {
+    role: FontRole,
+    /// `f32` is not `Hash`/`Eq`; its bit pattern is, and equal sizes shape alike.
+    size_bits: u32,
+    bold: bool,
+    italic: bool,
+}
+
+impl ShapeKey {
+    fn of(style: &TextStyle) -> ShapeKey {
+        ShapeKey {
+            role: style.role,
+            size_bits: style.size.to_bits(),
+            bold: style.bold,
+            italic: style.italic,
+        }
+    }
+}
+
 /// The text stack: font database, shaper, and glyph raster cache.
 pub(crate) struct FontStack {
     system: FontSystem,
@@ -151,7 +173,20 @@ pub(crate) struct FontStack {
     /// Cached raster coverage keyed by glyph and device size, so redrawing a
     /// counter does not re-rasterize its digits every frame.
     family: HashMap<FontRole, String>,
+    /// Shaped-run cache: `(style) -> (text -> Shaped)`. Laying out a run with
+    /// cosmic-text (a fresh `Buffer`, `set_text`, `shape_until_scroll`) costs far
+    /// more than cloning the resulting glyphs, and a UI reshapes the *same* runs
+    /// every frame — the static table text, the ellipsis candidates, the counter
+    /// digits. The two-level shape lets a hit borrow the text as `&str` (no
+    /// allocation); only a miss allocates the owned key. Fonts are fixed at
+    /// startup, so a shaped run never goes stale.
+    shaped: HashMap<ShapeKey, HashMap<String, Shaped>>,
 }
+
+/// How many distinct runs to hold before clearing the shape cache wholesale. The
+/// live set for a window is a few dozen; this bound only guards a pathological
+/// stream of ever-changing text (and a clear just means the next frame reshapes).
+const SHAPE_CACHE_CAP: usize = 8192;
 
 impl FontStack {
     /// `system_fallback` loads the platform's fonts behind the bundled ones. Tests
@@ -174,11 +209,32 @@ impl FontStack {
             system,
             cache: SwashCache::new(),
             family,
+            shaped: HashMap::new(),
         }
     }
 
     /// Shape and measure. Logical units throughout; no scale factor is involved.
+    /// A run already laid out under the same style is returned from the cache
+    /// rather than reshaped — the whole point is that repainting an unchanged
+    /// window costs no fresh shaping.
     pub(crate) fn shape(&mut self, text: &str, style: &TextStyle) -> Shaped {
+        let key = ShapeKey::of(style);
+        if let Some(hit) = self.shaped.get(&key).and_then(|runs| runs.get(text)) {
+            return hit.clone();
+        }
+        let shaped = self.shape_uncached(text, style);
+        if self.shaped.values().map(HashMap::len).sum::<usize>() >= SHAPE_CACHE_CAP {
+            self.shaped.clear();
+        }
+        self.shaped
+            .entry(key)
+            .or_default()
+            .insert(text.to_string(), shaped.clone());
+        shaped
+    }
+
+    /// The actual cosmic-text layout, behind the cache.
+    fn shape_uncached(&mut self, text: &str, style: &TextStyle) -> Shaped {
         let metrics = Metrics::new(style.size, style.size * 1.3);
         let mut buffer = Buffer::new(&mut self.system, metrics);
         let family = self
