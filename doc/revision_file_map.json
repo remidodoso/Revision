@@ -309,6 +309,116 @@
    "path": "src/rust/ui_kit/tests/it/pane.rs",
    "desc": "pane behaviour and goldens: drag snap-back and resume, escape ignored, paging, wheel zoom anchoring",
    "generated": false
+  },
+  {
+   "path": "src/rust/app/src/roll.rs",
+   "desc": "the read-only piano roll (ui-06): notes via TuneCache, log2(hz) x beats, degree+grid ladders, a11y notes-as-data. R-941/943/312",
+   "generated": false
+  },
+  {
+   "path": "src/rust/app/src/roll",
+   "desc": "roll drawing and its tests: same-as-engine frequencies, retuning moves notes, octave equidistance, thickness, a11y",
+   "generated": false
+  },
+  {
+   "path": "src/rust/app/src/follow.rs",
+   "desc": "playhead follow (ui-06 §8): armed/disarmed by horizontal user scroll, page-not-slide, FOLLOW_TRIGGER/LAND constrained pair. R-947",
+   "generated": false
+  },
+  {
+   "path": "src/rust/app/src/follow",
+   "desc": "follow state-machine tests: jump-and-land, take-over, re-arm on locate, zoom anchors playhead, end-of-piece clamp",
+   "generated": false
+  },
+  {
+   "path": "src/rust/app/src/mhall.rs",
+   "desc": "MHALL as a project, shared by the rev-mhall and rev-roll demo binaries (rev-testkit is dev-only and cannot ship)",
+   "generated": false
+  },
+  {
+   "path": "src/rust/app/src/bin/roll.rs",
+   "desc": "rev-roll demo: MHALL drawn and playing, space plays, home locates and re-arms follow - the ui-06 look",
+   "generated": false
+  },
+  {
+   "path": "src/rust/midi/src/correlate.rs",
+   "desc": "clock-domain correlation (midi-01 §4, R-603): rolling least-squares fit of sample position vs monotonic time; slope is observed sample rate",
+   "generated": false
+  },
+  {
+   "path": "src/rust/midi/src/correlate",
+   "desc": "the fit's tests: clean/jittered/drifting clock, stale-pair rejection, bounded history",
+   "generated": false
+  },
+  {
+   "path": "src/rust/midi/src/snapshot.rs",
+   "desc": "note→Hz snapshot (midi-01 §5, R-312): 128-entry lock-free resolution table; also midi-04's remap hook",
+   "generated": false
+  },
+  {
+   "path": "src/rust/midi/src/snapshot",
+   "desc": "snapshot tests: resolves exactly as the tuning, silence for unresolved/out-of-range",
+   "generated": false
+  },
+  {
+   "path": "src/rust/midi/src/event.rs",
+   "desc": "parsed MIDI Message (note on/off, vel-0 = off) and the LiveKey pairing; Captured = model-side event for capture (R-002)",
+   "generated": false
+  },
+  {
+   "path": "src/rust/midi/src/event",
+   "desc": "message parse tests: note on/off, velocity-0, channel identity, level curve",
+   "generated": false
+  },
+  {
+   "path": "src/rust/midi/src/input.rs",
+   "desc": "the input Fork (midi-01 §3,§7): a message -> thru ring (frequencies, R-312) + event ring (note numbers, R-002); set_snapshot remaps",
+   "generated": false
+  },
+  {
+   "path": "src/rust/midi/src/input",
+   "desc": "fork tests: physics+model split, off-pairing, vel-0, unresolved keys, live snapshot remap",
+   "generated": false
+  },
+  {
+   "path": "src/rust/midi/src/ports.rs",
+   "desc": "opening a real midir port (midi-01 §1): list() and open() wiring Fork::on_message; enumeration/hot-plug deferred to midi-02",
+   "generated": false
+  },
+  {
+   "path": "src/rust/midi/tests/it",
+   "desc": "integration: a real midir open proving the types; safe with no device",
+   "generated": false
+  },
+  {
+   "path": "src/rust/engine/src/live.rs",
+   "desc": "Live/LiveKey (midi-01 §6): physics + opaque handle crossing the thru ring; the input side of R-312",
+   "generated": false
+  },
+  {
+   "path": "src/rust/midi/src/devices.rs",
+   "desc": "enumeration + hot-plug (midi-02, R-601/602): poll the port list, diff for arrival/removal, find a remembered device by name",
+   "generated": false
+  },
+  {
+   "path": "src/rust/midi/src/devices",
+   "desc": "hot-plug diff tests: first-poll arrivals, plug/unplug, remembered-device rebind",
+   "generated": false
+  },
+  {
+   "path": "src/rust/app/src/midi.rs",
+   "desc": "live MIDI input manager (midi-02): opens a rev-midi port, hands the callback the engine's ThruSender, polls for hot-plug and auto-reconnect",
+   "generated": false
+  },
+  {
+   "path": "src/rust/app/src/latency.rs",
+   "desc": "honest live-path latency estimate (midi-03, R-307 v0): a measurable floor from the observed block size, admitting the buffering it can't see",
+   "generated": false
+  },
+  {
+   "path": "src/rust/app/src/latency",
+   "desc": "latency estimate tests: two-block floor, bigger buffer = more, device latency added, the honest 'at least' summary",
+   "generated": false
   }
  ]
 }

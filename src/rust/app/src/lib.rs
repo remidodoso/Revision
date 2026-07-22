@@ -6,4 +6,9 @@
 //! whatever is proved by one is true of the other.
 
 pub mod audio;
+pub mod follow;
+pub mod latency;
+pub mod mhall;
+pub mod midi;
 pub mod pad;
+pub mod roll;

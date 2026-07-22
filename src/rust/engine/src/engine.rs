@@ -62,6 +62,12 @@ pub struct Engine {
     /// monotonically with play position and is re-seeded whenever the position
     /// moves discontinuously: a locate, a loop wrap, or a new chunk.
     cursor: usize,
+    /// The last callback's block size, observed rather than assumed.
+    block_frames: u32,
+    /// A rolling seed for live-note head offsets. Live play is not offline, so
+    /// it carries no R-1402 obligation; a counter is enough to decorrelate the
+    /// two read heads note to note.
+    live_seed: u64,
     /// Device buffer latency in frames, input and output. **Ours only** — never
     /// an instrument's own response (R-310).
     latency: (u32, u32),
@@ -92,7 +98,9 @@ impl Engine {
             trace: Level::Info,
             peak: [0.0; 2],
             instrument: None,
+            live_seed: 0,
             cursor: 0,
+            block_frames: 0,
             latency: (0, 0),
             origin: Instant::now(),
         }
@@ -130,9 +138,11 @@ impl Engine {
         let started = Instant::now();
 
         let frame = block.frame();
+        self.block_frames = frame as u32;
         block.out.silence();
 
         self.take_commands(frame);
+        self.take_live();
 
         // Render in quanta whose boundaries fall at multiples of QUANTUM from
         // the **session start**, not from the block start (eng-02 §4a). The
@@ -198,6 +208,25 @@ impl Engine {
             if command.at < block_end {
                 self.pending[index] = None;
                 self.apply(command.what);
+            }
+        }
+    }
+
+    /// Play what the keyboard is doing, right now. Live notes are not scheduled
+    /// and carry no timestamp: they sound as soon as the block that drains them
+    /// renders, which is the minimum latency there is (midi-01 §6). The engine
+    /// receives frequencies and opaque keys — never note numbers (R-312).
+    fn take_live(&mut self) {
+        while let Some(live) = self.port.next_live() {
+            let Some(instrument) = self.instrument.as_mut() else {
+                continue;
+            };
+            match live {
+                crate::live::Live::NoteOn { hz, level, key } => {
+                    self.live_seed = self.live_seed.wrapping_add(1);
+                    instrument.live_on(hz, level, self.live_seed, key);
+                }
+                crate::live::Live::NoteOff { key } => instrument.live_off(key),
             }
         }
     }
@@ -458,6 +487,7 @@ impl Engine {
             loop_to: self.loop_to,
             sample_rate: self.format.sample_rate,
             block: self.block,
+            block_frames: self.block_frames,
             xrun: self.xrun,
             peak: self.peak,
             callback_us: elapsed,

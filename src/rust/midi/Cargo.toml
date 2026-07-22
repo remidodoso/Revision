@@ -5,3 +5,20 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 publish = false
+
+# midi-01 §2: midir for the device, rev-core for note numbers and the tuning it
+# resolves against, rev-engine for the physics that crosses the thru ring (the
+# Live/LiveKey types, R-312-clean — frequencies and an opaque handle). Nothing
+# else.
+[dependencies]
+midir.workspace = true
+rev-core = { path = "../core" }
+rev-engine = { path = "../engine" }
+rtrb.workspace = true
+
+[dev-dependencies]
+# The integration test stands in for a driver draining the thru ring.
+
+[[test]]
+name = "it"
+path = "tests/it/main.rs"

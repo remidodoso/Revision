@@ -33,6 +33,10 @@ pub struct Position {
     pub sample_rate: u32,
     /// Blocks processed since the stream opened.
     pub block: u64,
+    /// The most recent callback's block size, in frames. Not fixed — the host
+    /// may hand a different size each time — so it is observed, not assumed. The
+    /// live-path latency floor is built from it (R-307).
+    pub block_frames: u32,
     /// Callbacks that did not make their deadline.
     pub xrun: u64,
     /// Peak output since the last block, per channel, linear.

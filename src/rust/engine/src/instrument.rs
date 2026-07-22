@@ -147,6 +147,9 @@ pub struct Instrument {
     pool: VoicePool,
     layout: Layout,
     sample_rate: u32,
+    /// Live notes currently held, `(key, slot)`. Bounded by the pool size (one
+    /// voice per slot), so it is allocated once and never grows past it.
+    held: Vec<(crate::live::LiveKey, usize)>,
 }
 
 impl Instrument {
@@ -187,6 +190,7 @@ impl Instrument {
             pool,
             layout,
             sample_rate,
+            held: Vec::with_capacity(voices),
         })
     }
 
@@ -272,15 +276,72 @@ impl Instrument {
             return false;
         }
         let slot = self.pool.newest();
-        self.schedule(slot, hz, dur);
+        self.schedule(slot, hz, Some(dur));
         true
+    }
+
+    /// Start a **held** live note — no known duration, because a finger is on a
+    /// key (midi-01 §6). The release is not scheduled up front; it is added when
+    /// the note-off arrives, which is the difference between a scheduled note
+    /// (duration known, R-402a) and a live one (duration is your grip).
+    ///
+    /// Re-pressing a key that is still held retriggers it: the old voice is
+    /// released first, so a fast trill does not strand voices.
+    pub fn live_on(&mut self, hz: f32, level: f32, seed: u64, key: crate::live::LiveKey) {
+        if let Some(index) = self.held.iter().position(|(k, _)| *k == key) {
+            let (_, slot) = self.held.swap_remove(index);
+            self.release_now(slot);
+        }
+        // A live note sustains until released, so it must never auto-release on
+        // its written duration — there isn't one. `u64::MAX` frames is longer
+        // than any session, and the pool's `remaining` simply never reaches
+        // zero.
+        let table = self.table.nearest(hz);
+        if !self.pool.start(hz, level, u64::MAX, 0, seed, table) {
+            return;
+        }
+        let slot = self.pool.newest();
+        self.schedule(slot, hz, None);
+        // At most one voice per pool slot, so the map cannot outgrow the pool.
+        self.held.push((key, slot));
+    }
+
+    /// Release the held voice a key started. A note-off with no matching note-on
+    /// is ignored — the honest thing to do with a stray off.
+    pub fn live_off(&mut self, key: crate::live::LiveKey) {
+        if let Some(index) = self.held.iter().position(|(k, _)| *k == key) {
+            let (_, slot) = self.held.swap_remove(index);
+            self.release_now(slot);
+        }
+    }
+
+    /// Add the release envelope at *this instant* and move the voice to
+    /// releasing. A scheduled note bakes its release in up front; a live one
+    /// cannot, because the moment is only known at note-off.
+    fn release_now(&mut self, slot: usize) {
+        let rate = self.sample_rate as f32;
+        let release_tau = (self.patch.release * rate).max(1.0);
+        let amp = self.layout.amp;
+        let filter = self.layout.filter;
+        if let Some(voice) = self.pool.voice_mut(slot) {
+            let now = voice.elapsed();
+            if let Some(param) = voice.param_mut(amp, ParamId::Gain) {
+                param.schedule().set_target_at_time(0.0, now, release_tau);
+            }
+            if let Some(param) = voice.param_mut(filter, ParamId::Frequency) {
+                // Toward silence's cutoff is unnecessary; letting the filter sit
+                // is fine, so only the amplitude release is scheduled here.
+                let _ = param;
+            }
+            voice.release();
+        }
     }
 
     /// Schedule one voice's envelopes. The math is the inventory's §4, with the
     /// one JS-ism retired: that source never knew when a note would end, so it
     /// clamped the attack against the duration; we are told the duration up
     /// front (R-402a) and do not have to guess.
-    fn schedule(&mut self, slot: usize, hz: f32, dur: u64) {
+    fn schedule(&mut self, slot: usize, hz: f32, release_at: Option<u64>) {
         let patch = self.patch;
         let rate = self.sample_rate as f32;
         let attack = self.frames(patch.attack);
@@ -309,8 +370,12 @@ impl Instrument {
             schedule.set_value_at_time(0.0, 0);
             schedule.linear_ramp_to_value_at_time(1.0, attack.max(1));
             schedule.set_target_at_time(patch.sustain, attack.max(1), decay_tau);
-            // The release is scheduled now because the duration is known now.
-            schedule.set_target_at_time(0.0, dur.max(attack), release_tau);
+            // The release is scheduled up front only when the duration is known
+            // up front (a scheduled note, R-402a). A live note has no duration
+            // yet, so its release is added at note-off (`release_now`).
+            if let Some(dur) = release_at {
+                schedule.set_target_at_time(0.0, dur.max(attack), release_tau);
+            }
         }
 
         // --- Filter: the same shape in octave space, which is why it is an
@@ -321,7 +386,9 @@ impl Instrument {
             schedule.set_value_at_time(base_cut, 0);
             schedule.exponential_ramp_to_value_at_time(peak_cut, attack.max(1));
             schedule.set_target_at_time(sustain_cut, attack.max(1), decay_tau);
-            schedule.set_target_at_time(base_cut, dur.max(attack), release_tau);
+            if let Some(dur) = release_at {
+                schedule.set_target_at_time(base_cut, dur.max(attack), release_tau);
+            }
         }
 
         // --- Pitch attack: start off-pitch and slide home. Signed, so a positive
@@ -339,9 +406,17 @@ impl Instrument {
         }
     }
 
-    /// Release every sounding voice.
+    /// Release every sounding voice, and forget every held live note — so a
+    /// note-off lost on the wire cannot strand a voice (midi-01 §6.1). This is
+    /// the CC 123 *release*, not the panic: tails still ring.
     pub fn all_notes_off(&mut self) {
         self.pool.release_all();
+        self.held.clear();
+    }
+
+    /// How many live notes are held. For tests and, later, the polyphony meter.
+    pub fn held(&self) -> usize {
+        self.held.len()
     }
 
     /// Render a quantum, or the part of one that fits in what is left of a

@@ -16,6 +16,7 @@ rev-engine = { path = "../engine" }
 # dsp-02: the bake is app-side work, and the app is where its result is turned
 # into tables and handed across the seam.
 rev-dsp = { path = "../dsp" }
+rev-midi = { path = "../midi" }
 rev-log = { path = "../log" }
 
 # The windowed application.
@@ -34,3 +35,6 @@ path = "src/bin/tone.rs"
 [[bin]]
 name = "rev-mhall"
 path = "src/bin/mhall.rs"
+
+[dev-dependencies]
+rev-testkit = { path = "../testkit" }

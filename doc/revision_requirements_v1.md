@@ -356,6 +356,18 @@ Voices, parameters, behavior:
   is time-aware (R-515).
 - R-715 [Arch]. Live-performance CPU-relief variants (reduced voices) shall never
   affect offline rendering: offline render always uses the full voice.
+- R-715a [Arch]. Baked-table freshness is a CPU-relief axis under R-715. When a
+  bake-relevant parameter changes during live playback, the new table is baked off
+  the audio thread; a note that begins before its table is ready renders with the
+  **most-recent completed** table for that base, and the fresh table takes effect on
+  a subsequent note. **The audio thread never blocks on a bake**, so the worst case
+  is a briefly stale timbre, never a glitch or an xrun. Offline rendering has no
+  deadline and therefore always bakes the **exact** table for each note's parameters
+  before rendering it — so a performance is approximately right live and exactly right
+  on export (the freeze/bounce contract). The bake worker allocates and is not an RT
+  thread; it need not be, because nothing downstream waits on it. Determinism holds
+  offline because the bake seed is a pure function of the parameters (R-706, R-1402);
+  live staleness is a monitoring artefact and carries no model meaning.
 - R-716 [P1]. Internal instruments add no buffering beyond the engine block in the
   live path (R-304).
 - R-717 [P2]. Hosted plugin instruments and effects (CLAP, VST3) via an isolated
@@ -554,6 +566,17 @@ Positional display:
 
 Pitch display:
 
+- R-947 [P1]. **The transport never animates the view.** No view scrolls itself
+  smoothly during playback: a following view is stationary and jumps, and the only
+  thing moving between frames is the playhead. Motion the user did not ask for is
+  motion the user pays for, in cycles and in attention. Three reasons, ascending:
+  the renderer is a CPU rasterizer (a full-panel repaint measured 18.6 ms in dev,
+  3.6 ms in release); smooth scrolling defeats damage tracking, turning a frame
+  that costs two thin columns into one that costs the window; and the audio
+  callback has a deadline the UI does not, so during playback the correct posture
+  for the interface is nearly idle. Applies to every view that follows something —
+  the piano roll's playhead, the log tail, any future overview. A user scrolling
+  by hand may move the view however they like; that is their cycles to spend.
 - R-941 [Arch]. Pitch is displayed on a **continuous logarithmic frequency axis**. No
   pitch view presumes a fixed number of degrees per octave, uniform row height, or a
   chromatic keyboard. Gridlines, the degree ladder, labels, and (where editing exists)

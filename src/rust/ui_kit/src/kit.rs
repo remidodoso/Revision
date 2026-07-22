@@ -494,6 +494,18 @@ impl Kit {
         self.find(id).map(|w| &w.kind)
     }
 
+    /// The same, mutably — for a consumer that owns a widget's state and drives
+    /// it: a roll advancing its pane's offset to follow the playhead, chiefly.
+    ///
+    /// **Mutating here is how a caller says "this was not the user".** The kit
+    /// emits an `Intent` only from input, so anything changed through this door
+    /// is by construction programmatic, and a follower can tell its own scroll
+    /// from a person's without a flag.
+    pub fn kind_mut(&mut self, id: WidgetId) -> Option<&mut Kind> {
+        self.mark(id);
+        self.find_mut(id).map(|w| &mut w.kind)
+    }
+
     /// Absolute rect of a widget, once laid out.
     pub fn rect(&self, id: WidgetId) -> Option<Rect> {
         self.placed.iter().find(|(w, _)| *w == id).map(|(_, r)| *r)

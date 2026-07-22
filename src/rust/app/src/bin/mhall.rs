@@ -20,68 +20,53 @@
 use std::time::{Duration, Instant};
 
 use rev_app::audio::Audio;
-use rev_core::phrase::{
-    Container, EventSpec, InstanceContainer, PhraseInstanceSpec, PhraseSpec, TempoPoint, TrackSpec,
-};
-use rev_core::tick::{PPQ, Tick, bpm_to_usec_per_quarter};
-use rev_core::{Command as ModelCommand, PhraseId, TrackId};
+use rev_core::tick::Tick;
+
+use rev_core::{PhraseId, TrackId};
 use rev_dsp::BakeSpec;
 use rev_engine::driver::{Request, offline};
 use rev_engine::{Chunk, ChunkHandle, Command, Format, Patch, SampleTime, What, session};
 use rev_log::{Log, creator};
 use rev_sched::{Compiler, TempoMap};
-use rev_store::{Project, StoreError, query};
+use rev_store::{Project, query};
 
-/// The tune: (note number, length in quarters), 12-ET.
-#[rustfmt::skip]
-const MHALL: &[(i32, i64)] = &[
-    (64, 1), (62, 1), (60, 1), (62, 1),
-    (64, 1), (64, 1), (64, 2),
-    (62, 1), (62, 1), (62, 2),
-    (64, 1), (67, 1), (67, 2),
-    (64, 1), (62, 1), (60, 1), (62, 1),
-    (64, 1), (64, 1), (64, 1), (64, 1),
-    (62, 1), (62, 1), (64, 1), (62, 1),
-    (60, 4),
-];
+use rev_app::mhall::{MHALL, build};
 
-/// A mezzo-forte in the 16-bit velocity domain (R-402).
-const MEZZO_FORTE: i32 = 49_152;
-
+/// What the command line said. Plain parsing: this is a bring-up binary, and a
+/// dependency for six flags would be a dependency for six flags.
 struct Args {
     bpm: f64,
     tuning: String,
-    render: Option<String>,
-    device: Option<String>,
     voices: usize,
+    device: Option<String>,
+    render: Option<String>,
 }
 
 impl Default for Args {
     fn default() -> Args {
         Args {
             bpm: 120.0,
-            tuning: "12-ET".to_string(),
-            render: None,
-            device: None,
+            tuning: String::from("12-ET"),
             voices: 16,
+            device: None,
+            render: None,
         }
     }
 }
 
 fn parse() -> Args {
     let mut args = Args::default();
-    let mut argv = std::env::args().skip(1);
-    while let Some(flag) = argv.next() {
+    let mut argument = std::env::args().skip(1);
+    while let Some(flag) = argument.next() {
         match flag.as_str() {
-            "--bpm" => args.bpm = number(&mut argv, "--bpm"),
-            "--voices" => args.voices = number(&mut argv, "--voices") as usize,
-            "--tuning" => args.tuning = argv.next().unwrap_or(args.tuning),
-            "--render" => args.render = argv.next(),
-            "--device" => args.device = argv.next(),
+            "--bpm" => args.bpm = number(&flag, argument.next()),
+            "--tuning" => args.tuning = want(&flag, argument.next()),
+            "--voices" => args.voices = number(&flag, argument.next()) as usize,
+            "--device" => args.device = Some(want(&flag, argument.next())),
+            "--render" => args.render = Some(want(&flag, argument.next())),
             "--help" | "-h" => {
                 println!(
-                    "rev-mhall [--bpm N] [--tuning 12-ET|16-ET|JI] [--voices N] \
-                     [--device NAME] [--render FILE.wav]"
+                    "rev-mhall [--bpm N] [--tuning 12-ET|16-ET|JI] [--voices N] [--device NAME] [--render FILE.wav]"
                 );
                 std::process::exit(0);
             }
@@ -94,80 +79,24 @@ fn parse() -> Args {
     args
 }
 
-fn number(argv: &mut impl Iterator<Item = String>, flag: &str) -> f64 {
-    match argv.next().and_then(|v| v.parse().ok()) {
-        Some(n) => n,
+fn want(flag: &str, value: Option<String>) -> String {
+    match value {
+        Some(value) => value,
         None => {
-            eprintln!("{flag} wants a number");
+            eprintln!("{flag} wants a value");
             std::process::exit(2);
         }
     }
 }
 
-/// Build the tune into a project. One phrase, one arrangement, one instance.
-fn build(project: &mut Project, bpm: f64, tuning: &str) -> Result<(PhraseId, TrackId), StoreError> {
-    let tuning_id = query::tuning_by_name(project.reader(), tuning)?.map(|t| t.id);
-    if tuning_id.is_none() {
-        eprintln!("no tuning named {tuning:?}; using the project default");
-    }
-
-    project.gesture(|g| {
-        let bar = PPQ * 4;
-        let mut melody = PhraseSpec::new("Mary Had a Little Lamb", Tick(bar * 8));
-        melody.tuning_id = tuning_id;
-        let melody = match g.exec(ModelCommand::CreatePhrase {
-            id: None,
-            phrase: melody,
-        })? {
-            ModelCommand::CreatePhrase { id: Some(id), .. } => id,
-            _ => unreachable!(),
-        };
-
-        let mut at = Tick::ZERO;
-        let mut event = Vec::with_capacity(MHALL.len());
-        for &(note, quarters) in MHALL {
-            let duration = Tick(PPQ * quarters);
-            event.push(EventSpec::note(at, duration, note, MEZZO_FORTE));
-            at = Tick(at.get() + duration.get());
+fn number(flag: &str, value: Option<String>) -> f64 {
+    match value.and_then(|v| v.parse().ok()) {
+        Some(value) => value,
+        None => {
+            eprintln!("{flag} wants a number");
+            std::process::exit(2);
         }
-        g.exec(ModelCommand::AddEvent {
-            container: Container::Phrase(melody),
-            event,
-        })?;
-
-        let arrangement = match g.exec(ModelCommand::CreatePhrase {
-            id: None,
-            phrase: PhraseSpec::new("Arrangement", Tick(bar * 8)),
-        })? {
-            ModelCommand::CreatePhrase { id: Some(id), .. } => id,
-            _ => unreachable!(),
-        };
-        g.exec(ModelCommand::SetTempo {
-            phrase_id: arrangement,
-            point: vec![TempoPoint {
-                at_tick: Tick::ZERO,
-                usec_per_quarter: bpm_to_usec_per_quarter(bpm),
-            }],
-        })?;
-
-        let track = match g.exec(ModelCommand::CreateTrack {
-            id: None,
-            track: TrackSpec::new(arrangement, "Melody", 0),
-        })? {
-            ModelCommand::CreateTrack { id: Some(id), .. } => id,
-            _ => unreachable!(),
-        };
-        g.exec(ModelCommand::CreatePhraseInstance {
-            id: None,
-            phrase_instance: PhraseInstanceSpec::new(
-                melody,
-                InstanceContainer::Track(track),
-                Tick::ZERO,
-            ),
-        })?;
-
-        Ok((arrangement, track))
-    })
+    }
 }
 
 fn main() {

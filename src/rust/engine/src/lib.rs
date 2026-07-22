@@ -29,6 +29,7 @@ pub mod format;
 pub mod graph;
 pub mod guard;
 pub mod instrument;
+pub mod live;
 pub mod obs;
 pub mod param;
 pub mod port;
@@ -47,8 +48,9 @@ pub use graph::{
     BiquadMode, BuildError, Graph, GraphSpec, NodeKind, NodeRef, NodeSpec, ParamId, QUANTUM,
 };
 pub use instrument::{Instrument, Patch};
+pub use live::{Live, LiveKey};
 pub use obs::{Code, Creator, Level, Obs};
-pub use port::{EngineSession, Refused, RtPort, session};
+pub use port::{EngineSession, Refused, RtPort, ThruSender, session, session_with_thru};
 pub use position::Position;
 pub use table::{Table, TableId, TableSet};
 pub use time::{NOW, SampleTime};

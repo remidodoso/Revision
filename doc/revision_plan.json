@@ -13,7 +13,7 @@
  "now": [
   {
    "ts": "2026-07-21",
-   "text": "Stage 2 complete and the pane exists: MHALL plays the Harpington Padlington on hardware, and rev-ui-kit can scroll and zoom a region the application paints. Next: ui-06, MHALL visible on the piano roll."
+   "text": "MIDI plays: Padlington sounds live from a MIDI keyboard with an honest latency floor (midi-01/02/03); MHALL is visible and playing on the read-only piano roll (ui-06); the scrollable pane and its zoom cluster are built (ui-07). `cargo xtask plan` now enforces proposal filing and doc-link resolution (misc-05, at verifying). Next: rec-01, MIDI capture to the journal - the recording arc, whose whole premise is that a kill mid-take loses nothing."
   }
  ],
  "tracks": [
@@ -531,7 +531,7 @@
    "title": "[checkpoint] MIDI crate API + clock correlation",
    "kind": "major",
    "track": "midi",
-   "status": "planned",
+   "status": "complete",
    "depends_on": [
     "eng-01"
    ],
@@ -542,20 +542,29 @@
     {
      "doc": "revision_poc.md",
      "anchor": "Timing engine sketch"
+    },
+    {
+     "doc": "completed/revision_midi01_proposal.md",
+     "anchor": "midi-01 proposal"
     }
    ],
    "plan": "midir wrapper API; OS-timestamp to sample-clock correlation approach (dedicated module + tests). Human approval before implementation.",
    "verify": "",
-   "notes": [],
+   "notes": [
+    {
+     "ts": "2026-07-21",
+     "text": "Complete. rev-midi shapes built and tested without a device - the input Fork and its two rings (thru/physics, event/model), the rolling least-squares clock Correlation, the 128-entry note->Hz snapshot, the parsed Message with velocity-0-as-off - plus a real midir open proving the types. R-312 holds at the input edge: the thru ring carries frequencies, the event ring note numbers."
+    }
+   ],
    "created": "2026-07-19",
-   "completed": null
+   "completed": "2026-07-21"
   },
   {
    "id": "midi-02",
    "title": "Enumeration + timestamped input + thru fast path",
    "kind": "major",
    "track": "midi",
-   "status": "planned",
+   "status": "complete",
    "depends_on": [
     "midi-01",
     "eng-07"
@@ -568,16 +577,21 @@
    "links": [],
    "plan": "Hot-plug enumeration; driver-boundary timestamps; the dual-path fork (thru ring to engine + event path to app).",
    "verify": "",
-   "notes": [],
+   "notes": [
+    {
+     "ts": "2026-07-21",
+     "text": "Complete. Enumeration and hot-plug by poll (midir has no arrival callback): the app opens the first keyboard, remembers it, reconnects it when it returns. The callback holds the engine's ThruSender, so a note reaches the voice pool on the fast path with no scheduling. Live note-on/off paired at the edge (R-402a) through a held-voice map; All Notes Off clears it."
+    }
+   ],
    "created": "2026-07-19",
-   "completed": null
+   "completed": "2026-07-21"
   },
   {
    "id": "midi-03",
    "title": "Live playthrough + honest latency print",
    "kind": "major",
    "track": "midi",
-   "status": "planned",
+   "status": "complete",
    "depends_on": [
     "midi-02"
    ],
@@ -588,9 +602,14 @@
    "links": [],
    "plan": "Play the voice from the Code/Oxygen; measure and print end-to-end latency (R-307 v0). Stage 3 exit. Stretch: one knob mapped to a voice macro.",
    "verify": "",
-   "notes": [],
+   "notes": [
+    {
+     "ts": "2026-07-21",
+     "text": "Complete, and it plays: Padlington sounds live from the Oxygen Pro Mini. The honest latency print (R-307 v0) is a measurable floor - two block periods plus any device-reported output latency - rendered with a leading >= and 'shared-mode buffering adds an unmeasured amount', because the WASAPI shared-mode tail is real and cpal will not tell us its size. Reported >= 20 ms; the felt figure is 50-100 ms, fine for noodling and step entry."
+    }
+   ],
    "created": "2026-07-19",
-   "completed": null
+   "completed": "2026-07-21"
   },
   {
    "id": "ui-01",
@@ -1153,7 +1172,7 @@
    "title": "Read-only piano roll — MHALL visible, playing",
    "kind": "major",
    "track": "ui",
-   "status": "planned",
+   "status": "complete",
    "depends_on": [
     "core-03",
     "eng-07",
@@ -1165,17 +1184,26 @@
     "R-943",
     "R-312"
    ],
-   "links": [],
+   "links": [
+    {
+     "doc": "completed/revision_ui06_proposal.md",
+     "anchor": "ui-06 proposal"
+    }
+   ],
    "plan": "Resolve v_realized rows to frequencies through their tuning, map log-f to y, draw note rectangles, a degree ladder from the applicable tuning, and a playhead driven by the engine's position snapshot. READ-ONLY: no snapping, no drag, no row model, no keyboard widget - editing is a later item and is the thing that raises 'which tuning does a dragged note belong to'. Small precisely because R-941 removes the row machinery rather than adding to it.",
    "verify": "",
    "notes": [
     {
      "ts": "2026-07-21",
      "text": "Blocked on a rev-ui-kit checkpoint: the kit has absolute/anchored layout with fixed-size widgets and NO scrolling and NO zoom. A roll needs both, and that is a public API addition (ground rule 2). Flagged before implementation rather than discovered during it."
+    },
+    {
+     "ts": "2026-07-21",
+     "text": "Complete. The read-only piano roll: MHALL's notes resolved through the same TuneCache the compiler uses, so what-you-see-is-what-you-hear is structural. y = log2(hz) becomes the coordinate system (R-941), x is beats with real meaning; notes drawn as thick lines with round caps, collapsing to circles under a pixel. Playhead follow pages rather than slides (R-947), arms/disarms on horizontal user scroll, triggers at 80% and lands at 50%."
     }
    ],
    "created": "2026-07-21",
-   "completed": null
+   "completed": "2026-07-21"
   },
   {
    "id": "misc-04",
@@ -1252,6 +1280,110 @@
    ],
    "created": "2026-07-21",
    "completed": "2026-07-21"
+  },
+  {
+   "id": "misc-05",
+   "title": "xtask plan: proposal filing and link resolution",
+   "kind": "minor",
+   "track": "misc",
+   "status": "complete",
+   "depends_on": [
+    "misc-04"
+   ],
+   "requirements": [],
+   "links": [],
+   "plan": "Two checks in `cargo xtask plan`, both failures rather than warnings, both about references nothing currently verifies. (1) FILING: a proposal whose plan item is complete must live in doc/completed/, and one whose item is not complete must live in doc/ - so the getstarted rule 'live proposals sit in doc/, completed ones move to doc/completed/' is enforced instead of remembered. (2) LINKS: every links.doc in the plan must resolve to a file that exists, and every `doc/revision_*.md` cited in a source comment must resolve too - the second is the one that rots, because moving a proposal breaks comments nowhere near it.",
+   "verify": "Built in xtask/src/plan.rs as check_filing and check_links. Filing is driven off proposal files on disk, each matched to the plan items that link it by basename: a file under completed/ wants at least one complete owner, a file loose in doc/ wants at least one live owner (the asymmetry lets a finished item cite a live item's proposal without a false alarm), and an unlinked proposal is flagged as orphaned. Links resolves every plan links.doc and every doc/...md|json citation in any .rs under src/, the second via a hand-rolled scanner (no regex dependency). Verified to bite on all three fault classes - a broken plan link, a proposal archived under the wrong completeness, and a stale source citation - and green on the real tree. 17 xtask tests, clippy clean. Already in CI's lint job (cargo xtask plan).",
+   "notes": [
+    {
+     "ts": "2026-07-21",
+     "text": "Written after filing four proposals by hand and having to chase their references: four plan links plus two source comments (engine/src/graph.rs and sched/src/lib.rs, each citing where its subsystem was approved). Both classes fail quietly - a stale path is only found by opening the thing, which is the same failure mode as the `at`/`ts` key that put 'undefined' at the top of the plan page. That one recurred, which is the bar for building the checker: not worth it on one instance, worth it on two."
+    },
+    {
+     "ts": "2026-07-21",
+     "text": "Provenance: during fault-testing of this very checker I ran `git checkout` against the live doc/revision_plan.json and discarded its uncommitted edits, reverting it to commit 213481e. This item and eng-08 were restored verbatim from the session record; dsp-04 and midi-04 were rebuilt from the discussion and are terser than the originals; recent status flips and this now/log were reconstructed. The lesson is now the checker's own: fault-test against a temp copy, never the tracked file, and never with a mutating git command."
+    }
+   ],
+   "created": "2026-07-21",
+   "completed": "2026-07-21"
+  },
+  {
+   "id": "eng-08",
+   "title": "Engine self-telemetry: load, polyphony, ring meters, misses",
+   "kind": "major",
+   "track": "engine",
+   "status": "planned",
+   "depends_on": [
+    "eng-07"
+   ],
+   "requirements": [
+    "R-304",
+    "R-311",
+    "R-1402"
+   ],
+   "links": [],
+   "plan": "The live instrumentation tier - the producer the perf ledger will later harvest. One deliberate extension of the Position seqlock (public API of rev-engine, hence the checkpoint) carrying, as cheap scalars read every UI frame: audio-callback load as a fraction of the block deadline; polyphony (voices sounding / releasing / stolen, mostly already counted in VoicePool); ring-occupancy HIGH-WATER marks for the command, observation and return rings; and the three miss counts unified (xrun, command refusal, obs drop - all already counted and logged, surfaced here beside the headroom that predicts them). Metric is WALL-TIME OCCUPANCY, not OS CPU-time: RT-safe (two monotonic clock reads, no syscall, no alloc), reads slightly high under preemption which is the safe direction. High-waters recorded at the point of each push via one relaxed fetch_max - app-side and free for the command ring, one RT atomic per (infrequent) event for the obs and return rings. The ring meter is SEMANTIC not four identical bars: a full command ring refuses a user gesture, a full obs ring drops a log line, a full return ring is a leak or sizing bug and any pressure on it is an alarm. App side: a rev-app perf module with an EWMA and rolling worst, a key-toggled one-line overlay off by default, and a periodic DEVICE-KEYED line to rev-log (headroom is unreadable without ring capacity and block size). Everything observe-only, so R-1402 is untouched by construction; detailed timing gated to live/debug so an offline render is bit-identical whether or not it was profiled.",
+   "verify": "",
+   "notes": [
+    {
+     "ts": "2026-07-21",
+     "text": "Settled over four discussion rounds (GUI-vs-voicing load, polyphony, ring meters, miss counting). Placement decided ENGINE not MISC: the load-bearing part is the public Position seqlock extension and RT-safe ring/callback recording under the R-1402 and no-alloc obligations - MISC has only ever held repo tooling (filemap, plan checker, license) that does not touch the RT core. The checkpoint goes on the track that owns the struct it changes."
+    },
+    {
+     "ts": "2026-07-21",
+     "text": "Much of this is surfacing what already exists rather than new measurement. callback_us / callback_worst_us are already published on the seqlock (eng-07); VoicePool already knows sounding/stolen/free; xrun is counted and logged at engine.rs note_xrun, obs drops via report_dropped, command refusals warned app-side. What is genuinely new: the block-deadline DENOMINATOR that turns callback_us into a load %, the ring high-water marks (the 'how close' before a drop, which sampling from the reader cannot catch), and one unified live view. Bundle all the seqlock scalar additions into ONE Position change rather than dribbling fields in."
+    }
+   ],
+   "created": "2026-07-21",
+   "completed": null
+  },
+  {
+   "id": "dsp-04",
+   "title": "Live bake hot-swap: re-bake baked parameters during playback",
+   "kind": "major",
+   "track": "dsp",
+   "status": "planned",
+   "depends_on": [
+    "dsp-02"
+   ],
+   "requirements": [
+    "R-715a"
+   ],
+   "links": [],
+   "plan": "RECONSTRUCTED after the plan-file loss; text is a faithful summary of the discussion, not the original wording. Notorolla's experience is the target: changes to BAKED parameters (source, shape, formant, air - the twelve fields of BakeSpec) during playback are CPU-lite and 'work about as well as one could hope'. The three-way input fork routes bake-relevant CCs to an app-side path that re-bakes and swaps the table at the NEXT note, while notes and play-time CCs stay on the fast thru path. A single re-bake is ~10 ms, cheap enough for a low-priority best-effort thread. R-715a governs the tolerance: baked-table freshness is a CPU-RELIEF axis - live play may use a slightly stale table and must NEVER glitch to get a fresh one, while an offline render is exact. So the bake thread is allowed to fall behind under live load by construction.",
+   "verify": "",
+   "notes": [
+    {
+     "ts": "2026-07-21",
+     "text": "Reopened when the user reported that in Notorolla, bake-parameter changes during playback are CPU-lite and best-effort - correcting an earlier over-estimate that treated it as a full eager table-set re-bake (hundreds of ms) rather than a single ~10 ms re-bake. Pairs with the irresistible want to bind MIDI controls to Padlington bake parameters."
+    }
+   ],
+   "created": "2026-07-21",
+   "completed": null
+  },
+  {
+   "id": "midi-04",
+   "title": "Scale remap: play one scale on the controller, hear another",
+   "kind": "major",
+   "track": "midi",
+   "status": "planned",
+   "depends_on": [
+    "midi-01"
+   ],
+   "requirements": [
+    "R-312"
+   ],
+   "links": [],
+   "plan": "RECONSTRUCTED after the plan-file loss; text is a faithful summary of the discussion, not the original wording. The 'party trick': play a scale as fingered on the MIDI keyboard, hear it realized as a DIFFERENT scale in Revision. The worked example is 12-ET 2-1-2-1 octatonic played on the usual keys, remapped to its 16-ET 3-1-3-1 octatonic equivalent - the keys used for the source scale map to their target-scale equivalents, and the other keys map to 'whatever is likely to sound good'. The mechanism is the note->Hz snapshot's set_snapshot hook (midi-01 built the seam and left the atomic-swap cell as this item's): swapping the 128-entry table remaps every subsequent key, lock-free, without disturbing R-312 on the hot path. Distinct from rec-03, which is the same trick applied to recorded material.",
+   "verify": "",
+   "notes": [
+    {
+     "ts": "2026-07-21",
+     "text": "Approved as its own item during the midi-01 discussion. The logic: take the keys used for a scale (e.g. 12-ET octatonic) and map them to their equivalents in the target scale (16-ET octatonic); unused keys fall back to a nearest-good choice. Generalizes to other scales, not only octatonic."
+    }
+   ],
+   "created": "2026-07-21",
+   "completed": null
   }
  ]
 }

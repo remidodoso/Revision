@@ -4,6 +4,14 @@
  "log": [
   {
    "ts": "2026-07-21",
+   "text": "Stage 2 complete and the pane exists: MHALL plays the Harpington Padlington on hardware, and rev-ui-kit can scroll and zoom a region the application paints. Next: ui-06, MHALL visible on the piano roll."
+  },
+  {
+   "ts": "2026-07-21",
+   "text": "Plan file reconstructed. An accidental `git checkout` on the tracked doc/revision_plan.json (while fault-testing the misc-05 checker) discarded its uncommitted edits, reverting it to commit 213481e. Rebuilt from the committed base: the midi arc (midi-01/02/03) and ui-06 marked complete with restored notes; eng-08 and misc-05 restored verbatim from the session record; dsp-04 and midi-04 rebuilt from the discussion (marked RECONSTRUCTED, terser than the originals). Nothing but this one file was affected; all code, proposals and other docs were intact."
+  },
+  {
+   "ts": "2026-07-21",
    "text": "dsp-02 complete: the PADsynth bake, in Rust, band-limited by construction. The geometry is the result worth keeping - half-octave table spacing plus a band limit at Nyquist/r_max means no partial can cross Nyquist at any playback rate, so fold-back is absent rather than attenuated. The two decisions are complements: the spacing is what makes the strict limit cost nothing. Discussion arrived there by being wrong first - the fold floor is SR*(1 - r_max/2) = 14.1 kHz at octave spacing, not the 17 kHz I claimed, which put it inside ordinary hearing rather than exceptional hearing. R-720 records why conformance is measured to Nyquist: a nonlinear reproduction chain translates inharmonic ultrasonic content downward as inharmonic, while harmonic content translates as harmonic and fuses. And the eng-07 debt is paid - rev-testkit can listen to pitch, and 37 notes assert it. What remains is measured and named: resampling images at -27.6 dB worst, which the reference instrument shares and only oversampled reading removes."
   },
   {

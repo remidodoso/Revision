@@ -20,6 +20,7 @@ use std::sync::Arc;
 use rtrb::{Consumer, Producer, RingBuffer};
 
 use crate::command::{Command, Garbage};
+use crate::live::Live;
 use crate::obs::Obs;
 use crate::position::{Position, PositionCell};
 
@@ -27,6 +28,11 @@ use crate::position::{Position, PositionCell};
 pub const COMMAND_CAPACITY: usize = 1024;
 pub const OBS_CAPACITY: usize = 1024;
 pub const GARBAGE_CAPACITY: usize = 256;
+/// The thru ring: MIDI thread → engine, for live notes (midi-01 §3). Sized for a
+/// generous burst of a fast passage between one audio callback and the next;
+/// like the observation ring it drops-and-counts rather than blocking, because a
+/// missed live key is a missed key, not a leak.
+pub const THRU_CAPACITY: usize = 256;
 
 /// A command that could not be sent, handed back to its sender.
 ///
@@ -41,6 +47,11 @@ pub struct RtPort {
     pub(crate) obs: Producer<Obs>,
     pub(crate) garbage: Producer<Garbage>,
     pub(crate) position: Arc<PositionCell>,
+    /// Live notes from the MIDI thread. A different producer than `command`
+    /// (which is the app thread's), so it is its own ring — rtrb is
+    /// single-producer, and routing live notes through the app would cost a UI
+    /// frame of latency (midi-01 §3).
+    pub(crate) thru: Consumer<Live>,
     /// Observations the ring could not hold. Reported on the next successful
     /// push, so a gap in the log is itself visible.
     pub(crate) dropped: u64,
@@ -65,6 +76,36 @@ impl RtPort {
 
     pub(crate) fn publish(&self, position: Position) {
         self.position.publish(position);
+    }
+
+    /// Take the next live note, if any. Drained in `process`, the same place
+    /// commands are — and public so a driver (or a test standing in for one)
+    /// can prove what physics reached the engine.
+    pub fn next_live(&mut self) -> Option<Live> {
+        self.thru.pop().ok()
+    }
+}
+
+/// The MIDI thread's end of the thru ring. Held by `rev-midi`'s input callback,
+/// which resolves note→Hz and pushes physics (midi-01 §5, §7). **Drops and
+/// counts** rather than blocking, so a full ring under an implausible burst
+/// costs a note, never the audio thread.
+pub struct ThruSender {
+    thru: Producer<Live>,
+    /// Live notes the ring could not hold — surfaced via eng-08.
+    dropped: u64,
+}
+
+impl ThruSender {
+    /// Push a live note, or count it as lost. Never blocks, never allocates.
+    pub fn send(&mut self, live: Live) {
+        if self.thru.push(live).is_err() {
+            self.dropped += 1;
+        }
+    }
+
+    pub fn dropped(&self) -> u64 {
+        self.dropped
     }
 }
 
@@ -119,11 +160,12 @@ impl Drop for EngineSession {
     }
 }
 
-/// Build both ends of one session's seam.
-pub fn session() -> (EngineSession, RtPort) {
+/// Build both ends of one session's seam, plus the thru sender for live input.
+pub fn session_with_thru() -> (EngineSession, RtPort, ThruSender) {
     let (command_tx, command_rx) = RingBuffer::new(COMMAND_CAPACITY);
     let (obs_tx, obs_rx) = RingBuffer::new(OBS_CAPACITY);
     let (garbage_tx, garbage_rx) = RingBuffer::new(GARBAGE_CAPACITY);
+    let (thru_tx, thru_rx) = RingBuffer::new(THRU_CAPACITY);
     let position = Arc::new(PositionCell::new());
 
     (
@@ -138,9 +180,24 @@ pub fn session() -> (EngineSession, RtPort) {
             obs: obs_tx,
             garbage: garbage_tx,
             position,
+            thru: thru_rx,
+            dropped: 0,
+        },
+        ThruSender {
+            thru: thru_tx,
             dropped: 0,
         },
     )
+}
+
+/// Build a session with no live input — the common case for playback-only.
+///
+/// Keeps the two-value signature every existing caller uses; the thru ring
+/// still exists (the engine always drains it) but its producer is dropped, so
+/// the ring is simply always empty.
+pub fn session() -> (EngineSession, RtPort) {
+    let (app, rt, _thru) = session_with_thru();
+    (app, rt)
 }
 
 #[cfg(test)]

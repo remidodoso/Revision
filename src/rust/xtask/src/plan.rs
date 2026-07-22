@@ -10,9 +10,18 @@
 //! So the rule is the file map's rule: mismatches are **failures, never
 //! warnings**. A memory nobody can trust gets re-derived from scratch, which
 //! costs more than the check does.
+//!
+//! Two of the checks (misc-05) are not about the viewer at all — they are about
+//! references that nothing else verifies. **Filing**: a proposal moves to
+//! `doc/completed/` when its plan item completes and lives in `doc/` until then;
+//! that getstarted rule was remembered, not enforced, and it slipped — ui-06's
+//! proposal sat in `doc/` after the item was done until a hand audit moved it.
+//! **Links**: every `doc/…` reference resolves, both the plan's own `links` and
+//! every `doc/…` citation buried in a source comment — the second is the one
+//! that rots, because moving a proposal breaks comments nowhere near it.
 
-use std::collections::BTreeSet;
-use std::path::Path;
+use std::collections::{BTreeMap, BTreeSet};
+use std::path::{Path, PathBuf};
 
 /// The `now` banner is the first thing read and the easiest thing to inflate.
 /// It says **where the project stands** — what was last done belongs in an
@@ -135,9 +144,15 @@ pub fn run(root: &Path) -> Result<(), String> {
         }
     }
 
+    // --- misc-05: references nothing else checks — proposal filing and every
+    // documentation link, in the plan and in the source.
+    check_filing(root, item, &archived, &mut problem);
+    check_links(root, item, &mut problem);
+
     if problem.is_empty() {
         println!(
-            "plan is well formed ({} items, {} log entries)",
+            "plan is well formed ({} items, {} log entries); proposals filed and \
+             references resolve",
             item.len(),
             archive["log"].as_array().map_or(0, Vec::len)
         );
@@ -150,6 +165,195 @@ pub fn run(root: &Path) -> Result<(), String> {
         message.push('\n');
     }
     Err(message)
+}
+
+/// Enforce the getstarted filing rule: a proposal moves to `doc/completed/`
+/// when its plan item completes, and lives in `doc/` until then.
+///
+/// Ownership is "a plan item links this file", matched by basename so a link
+/// with a stale directory still associates. The two directions are deliberately
+/// asymmetric. A proposal filed under `completed/` wants at least one owner that
+/// is finished — otherwise it was archived too soon. A proposal loose in `doc/`
+/// wants at least one owner still live — because a finished item's proposal must
+/// be put away, but one a live item still needs stays put even if some other,
+/// finished item also cites it. A proposal no item links at all cannot be placed
+/// by this rule and is almost certainly orphaned, so it is flagged.
+fn check_filing(
+    root: &Path,
+    items: &[serde_json::Value],
+    archived: &[serde_json::Value],
+    problem: &mut Vec<String>,
+) {
+    // Proposal basename -> the completeness of every plan item that links it.
+    let mut owner: BTreeMap<String, Vec<bool>> = BTreeMap::new();
+    for entry in items.iter().chain(archived) {
+        let done = matches!(entry["status"].as_str(), Some("complete" | "archived"));
+        for link in entry["links"].as_array().into_iter().flatten() {
+            if let Some(doc) = link["doc"].as_str()
+                && is_proposal(doc)
+            {
+                owner
+                    .entry(basename(doc).to_string())
+                    .or_default()
+                    .push(done);
+            }
+        }
+    }
+
+    for (name, in_completed) in proposals_on_disk(root, problem) {
+        if let Some(fault) = filing_fault(&name, in_completed, owner.get(&name)) {
+            problem.push(fault);
+        }
+    }
+}
+
+/// The filing verdict for one proposal on disk, kept pure so the rule can be
+/// tested without a directory. `owners` is the completeness of every plan item
+/// that links the file (`None` if none do).
+fn filing_fault(name: &str, in_completed: bool, owners: Option<&Vec<bool>>) -> Option<String> {
+    match owners {
+        None => Some(format!(
+            "proposal `{name}` is filed but no plan item links it — filing \
+             cannot be verified, and it is almost certainly orphaned"
+        )),
+        Some(owners) if in_completed && !owners.iter().any(|&done| done) => Some(format!(
+            "proposal `{name}` is in doc/completed/ but no plan item that links it is complete"
+        )),
+        Some(owners) if !in_completed && owners.iter().all(|&done| done) => Some(format!(
+            "proposal `{name}` is complete but still in doc/ — a completed item's \
+             proposal moves to doc/completed/"
+        )),
+        Some(_) => None,
+    }
+}
+
+/// Every documentation reference resolves: the plan's own `links`, and every
+/// `doc/…md`|`doc/…json` citation in the source. A broken link is only ever
+/// found by opening the thing, which is the same failure mode as the `at`/`ts`
+/// key that put "undefined" at the top of the plan page.
+fn check_links(root: &Path, items: &[serde_json::Value], problem: &mut Vec<String>) {
+    // The plan's links: `doc/<link.doc>` exists.
+    for entry in items {
+        let id = entry["id"].as_str().unwrap_or("?");
+        for link in entry["links"].as_array().into_iter().flatten() {
+            if let Some(doc) = link["doc"].as_str()
+                && !root.join("doc").join(doc).is_file()
+            {
+                problem.push(format!("`{id}` links `doc/{doc}`, which does not exist"));
+            }
+        }
+    }
+
+    // Source citations: each `doc/…` path named in a `.rs` file resolves.
+    let mut source = Vec::new();
+    collect_rs(&root.join("src"), &mut source, problem);
+    source.sort();
+    for file in &source {
+        let text = match std::fs::read_to_string(file) {
+            Ok(text) => text,
+            Err(e) => {
+                problem.push(format!("cannot read {}: {e}", file.display()));
+                continue;
+            }
+        };
+        for citation in doc_citations(&text) {
+            if !root.join(&citation).is_file() {
+                let at = file.strip_prefix(root).unwrap_or(file);
+                problem.push(format!(
+                    "{} cites `{citation}`, which does not exist",
+                    at.display().to_string().replace('\\', "/")
+                ));
+            }
+        }
+    }
+}
+
+/// A proposal is a `.md` whose name says so; the convention is
+/// `revision_<slug>_proposal.md`, but the word alone is enough to recognise one.
+fn is_proposal(path: &str) -> bool {
+    let name = basename(path);
+    name.contains("proposal") && name.ends_with(".md")
+}
+
+fn basename(path: &str) -> &str {
+    path.rsplit(['/', '\\']).next().unwrap_or(path)
+}
+
+/// Every proposal on disk, paired with whether it sits under `completed/`. A
+/// directory that cannot be read is a problem, not a panic.
+fn proposals_on_disk(root: &Path, problem: &mut Vec<String>) -> Vec<(String, bool)> {
+    let mut out = Vec::new();
+    for (relative, in_completed) in [("doc", false), ("doc/completed", true)] {
+        let dir = root.join(relative);
+        match std::fs::read_dir(&dir) {
+            Ok(entries) => {
+                for entry in entries.flatten() {
+                    let name = entry.file_name().to_string_lossy().into_owned();
+                    if is_proposal(&name) {
+                        out.push((name, in_completed));
+                    }
+                }
+            }
+            Err(e) => problem.push(format!("cannot read {}: {e}", dir.display())),
+        }
+    }
+    out.sort();
+    out
+}
+
+/// Collect every `.rs` under a directory, skipping `target`. A read failure is
+/// reported and the walk goes on.
+fn collect_rs(dir: &Path, out: &mut Vec<PathBuf>, problem: &mut Vec<String>) {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(e) => {
+            problem.push(format!("cannot read {}: {e}", dir.display()));
+            return;
+        }
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            if path.file_name().is_some_and(|n| n == "target") {
+                continue;
+            }
+            collect_rs(&path, out, problem);
+        } else if path.extension().is_some_and(|e| e == "rs") {
+            out.push(path);
+        }
+    }
+}
+
+/// Every `doc/…md` or `doc/…json` path a source file mentions, as it resolves
+/// from the repo root. Hand-rolled rather than take a regex dependency for one
+/// pattern: find each `doc/` prefix, take the path-shaped run after it, and keep
+/// it when it names a doc file. A trailing period in prose is not an extension,
+/// so the span is cut at the first real one.
+fn doc_citations(text: &str) -> Vec<String> {
+    const PREFIX: &str = "doc/";
+    let byte = text.as_bytes();
+    let mut out = Vec::new();
+    let mut from = 0;
+    while let Some(offset) = text[from..].find(PREFIX) {
+        let start = from + offset;
+        let mut end = start + PREFIX.len();
+        while end < byte.len() && is_path_byte(byte[end]) {
+            end += 1;
+        }
+        from = end;
+        let span = &text[start..end];
+        for extension in [".md", ".json"] {
+            if let Some(at) = span.find(extension) {
+                out.push(span[..at + extension.len()].to_string());
+                break;
+            }
+        }
+    }
+    out
+}
+
+fn is_path_byte(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'/' | b'.' | b'-')
 }
 
 fn read(root: &Path, relative: &str) -> Result<serde_json::Value, String> {

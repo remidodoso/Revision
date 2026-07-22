@@ -11,13 +11,16 @@
 //! commands still succeed, and the failure is recorded rather than thrown.
 
 use rev_engine::driver::{Device, Request};
-use rev_engine::{Command, EngineSession, Level, Position, What, session};
+use rev_engine::{Command, EngineSession, Level, Position, ThruSender, What, session_with_thru};
 use rev_log::{Log, creator};
 
 pub struct Audio {
     session: EngineSession,
     /// `None` when no device could be opened. The application still runs.
     device: Option<Device>,
+    /// The MIDI thread's end of the thru ring, handed to a `rev-midi` fork when
+    /// live input is opened. `take_thru` moves it out, once (midi-02).
+    thru: Option<ThruSender>,
     log: Log,
     sample_rate: u32,
     /// Commands the ring refused. Counted rather than swallowed: a command is
@@ -38,7 +41,7 @@ impl Audio {
         request: &Request,
         instrument: impl FnOnce(rev_engine::Format) -> Option<rev_engine::Instrument>,
     ) -> Audio {
-        let (app, rt) = session();
+        let (app, rt, thru) = session_with_thru();
         match Device::open_with(request, rt, instrument) {
             Ok(device) => {
                 let report = device.report().clone();
@@ -55,6 +58,7 @@ impl Audio {
                     session: app,
                     sample_rate: report.format.sample_rate,
                     device: Some(device),
+                    thru: Some(thru),
                     log,
                     refused: 0,
                 }
@@ -73,6 +77,7 @@ impl Audio {
                 Audio {
                     session: app,
                     device: None,
+                    thru: Some(thru),
                     log,
                     sample_rate: 48_000,
                     refused: 0,
@@ -83,6 +88,12 @@ impl Audio {
 
     pub fn is_audible(&self) -> bool {
         self.device.is_some()
+    }
+
+    /// Take the thru sender — the MIDI thread's end of the ring the engine
+    /// drains. Moved out once, into a `rev-midi` fork, when live input opens.
+    pub fn take_thru(&mut self) -> Option<ThruSender> {
+        self.thru.take()
     }
 
     pub fn sample_rate(&self) -> u32 {

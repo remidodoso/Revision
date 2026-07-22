@@ -41,6 +41,11 @@ cosmic-text = "0.19"
 cpal = "0.18.1"
 rtrb = "0.3.4"
 
+# MIDI I/O, approved at midi-01. Cross-platform (WinMM / CoreMIDI / ALSA), MIT,
+# the settled Rust choice. rev-midi depends on midir and rev-core only; the
+# thru ring reaches rev-engine, which stays cpal+rtrb.
+midir = "0.11.0"
+
 # The bake's transform, approved at dsp-02 §12.2. `realfft` is the real-input
 # wrapper and brings `rustfft` with it, so only one entry is declared; both are
 # MIT/Apache and pure Rust. It is a dependency of rev-dsp (app-side, allocates

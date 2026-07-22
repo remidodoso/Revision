@@ -282,3 +282,83 @@ fn playing_allocates_nothing() {
         );
     }
 }
+
+#[test]
+fn a_live_note_holds_until_it_is_released() {
+    // The heart of the live path: a held note sustains (no scheduled end) and
+    // only ends when its off arrives — the difference between a scheduled note
+    // and a finger on a key (midi-01 §6).
+    use crate::live::LiveKey;
+    let mut instrument = Instrument::new(Patch::plucked(), tables(), 4, RATE).expect("build");
+    instrument.live_on(220.0, 1.0, 1, LiveKey(60));
+    assert_eq!(instrument.held(), 1, "one live note held");
+    assert_eq!(instrument.pool().sounding(), 1);
+
+    // Sustained plucked patch: sustain 0 means it decays toward silence, but the
+    // voice is still HELD, not releasing — it will not be reclaimed on its own.
+    render(&mut instrument, 200);
+    assert_eq!(
+        instrument.pool().sounding(),
+        1,
+        "still held after long render"
+    );
+
+    instrument.live_off(LiveKey(60));
+    assert_eq!(instrument.held(), 0, "the map forgot it");
+    render(&mut instrument, 400);
+    assert_eq!(instrument.pool().sounding(), 0, "and the release finished");
+}
+
+#[test]
+fn a_note_off_with_no_note_on_is_ignored() {
+    use crate::live::LiveKey;
+    let mut instrument = Instrument::new(Patch::plucked(), tables(), 4, RATE).expect("build");
+    instrument.live_off(LiveKey(64)); // never pressed
+    assert_eq!(instrument.held(), 0);
+    assert_eq!(instrument.pool().sounding(), 0);
+}
+
+#[test]
+fn re_pressing_a_held_key_retriggers_rather_than_stranding() {
+    use crate::live::LiveKey;
+    let mut instrument = Instrument::new(Patch::plucked(), tables(), 8, RATE).expect("build");
+    instrument.live_on(330.0, 1.0, 1, LiveKey(64));
+    instrument.live_on(330.0, 1.0, 2, LiveKey(64)); // same key again, no off between
+    // One key held, and the old voice is releasing rather than stuck held.
+    assert_eq!(instrument.held(), 1, "still one held for the key");
+    render(&mut instrument, 400);
+    instrument.live_off(LiveKey(64));
+    render(&mut instrument, 400);
+    assert_eq!(instrument.pool().sounding(), 0, "nothing stranded");
+}
+
+#[test]
+fn all_notes_off_clears_held_live_notes() {
+    // The escape hatch (midi-01 §6.1): a lost note-off cannot strand a voice,
+    // because All Notes Off releases everything and forgets the map.
+    use crate::live::LiveKey;
+    let mut instrument = Instrument::new(Patch::plucked(), tables(), 8, RATE).expect("build");
+    for n in 0..5u16 {
+        instrument.live_on(200.0 + 40.0 * n as f32, 0.6, n as u64, LiveKey(60 + n));
+    }
+    assert_eq!(instrument.held(), 5);
+    instrument.all_notes_off();
+    assert_eq!(instrument.held(), 0, "the map is cleared");
+    render(&mut instrument, 400);
+    assert_eq!(instrument.pool().sounding(), 0);
+}
+
+#[test]
+fn a_held_live_note_is_audible() {
+    use crate::live::LiveKey;
+    let mut instrument = Instrument::new(Patch::default(), tables(), 4, RATE).expect("build");
+    instrument.live_on(220.0, 1.0, 7, LiveKey(57));
+    // Past the attack of the default patch.
+    render(&mut instrument, 40);
+    let sound = render(&mut instrument, 8);
+    assert!(
+        peak(&sound) > 0.05,
+        "a held note should sound: {}",
+        peak(&sound)
+    );
+}
