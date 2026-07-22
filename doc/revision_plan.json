@@ -13,7 +13,7 @@
  "now": [
   {
    "ts": "2026-07-21",
-   "text": "MIDI records and replays: rev-rec captures live keyboard input against a shared engine/fork clock origin, journals each frame's notes as record_batch, and replays the take - headless (rec-01 complete; proven live, 11 notes on the Oxygen Pro Mini). Next: rec-02, reframed as the durability gate (kill -9 mid-take loses nothing committed - the PoC's core promise, headless) with Tier A folded in (see the survivor on the roll). Noted: two-track recording won't fully land for the user until an arrangement/multi-lane view exists - a separate, not-yet-planned UI item. Awaiting go-ahead for rec-02."
+   "text": "The PoC's four headline features all stand and are accepted: transport shape, a ported voice, MIDI record/replay, and the degree-native tuning swap. The whole recording arc (rec-01/02/03) is complete. Known-benign CI reds on Linux jobs (lint/cross-linux need apt libasound2-dev + X11/Wayland dev libs; license needs deny.toml migrated for cargo-deny 0.20 - natural fold-in to misc-03); the Windows test job incl. the tmon kill-gate is green. Bigger open item: the arrangement/multi-lane view that makes multi-track recording legible (rev-studio prototyped a slice of ui-04's transport wiring)."
   }
  ],
  "tracks": [
@@ -951,7 +951,7 @@
    "title": "Two tracks recorded and replayed + kill-mid-take",
    "kind": "major",
    "track": "recording",
-   "status": "planned",
+   "status": "complete",
    "depends_on": [
     "rec-01"
    ],
@@ -959,19 +959,37 @@
     "R-808",
     "R-1504"
    ],
-   "links": [],
+   "links": [
+    {
+     "doc": "completed/revision_rec02_proposal.md",
+     "anchor": "Decisions to approve"
+    }
+   ],
    "plan": "Record two MIDI tracks from hardware, replay them; kill -9 mid-take loses nothing committed. PoC completion test.",
-   "verify": "",
-   "notes": [],
+   "verify": "Three deliverables, all green. (1) Durability gate: cargo xtask tmon (the reserved slot, now implemented in xtask/src/tmon.rs) spawns a child that journals one RecordBatch gesture per note and prints each acknowledged commit; the parent hard-kills it with Child::kill() (SIGKILL/TerminateProcess) after 300 acknowledged, then reopens and asserts integrity_check ok, survivors >= acknowledged (nothing acknowledged lost), and note-count == record_batch gesture-count (nothing partial). Stable across repeated runs; wired into CI's test job. (2) Tier A: rev-roll --project FILE [--track N] opens any project's track - proven drawing 1406 notes from a tuned take. (3) Tier B harness: rev-studio (app/src/bin/studio.rs) mashes a clickable transport strip (tri-state Record light, Play, Stop, Counter) onto the live roll, wired to the Recorder + engine, rebuilding the roll each frame so notes appear as played; two-track overdub via track focus (keys 1/2). Two-track mechanism proven headless (two_tracks_record_and_replay_together: both tracks record, one schedule over vec![t1,t2] carries voice 0 and voice 1). Full gate green: fmt, clippy 0 warnings, filemap/plan/schema current, whole suite passes. rev-studio's click-to-record-and-see flow is the user's eyeball verification (getstarted stage-4 rule, no UI automation).",
+   "notes": [
+    {
+     "ts": "2026-07-21",
+     "text": "Proposal drafted (doc/revision_rec02_proposal.md), awaiting make-it-so. Reframed per discussion: the durability gate (kill -9 mid-take loses no acknowledged commit) is the visual-independent core, built as the reserved xtask tmon slot - a child journals RecordBatch gestures printing each acknowledged commit, the parent hard-kills it with Child::kill() mid-loop, reopen must be clean and lose nothing acknowledged (proves process-kill durability, WAL's guarantee, not power-loss). Two-track via a second overdub pass in rev-rec (compiler already takes a Vec of tracks). Tier A: rev-roll --project to SEE a take and the kill survivor on the single-lane roll. Added in discussion (Tier B): a throwaway windowed harness mashing the transport strip (tri-state Record, Play/Stop, Counter - all already in the ui-03 kit, clickable) onto the live roll, so recording is operable and notes appear as you play; it prototypes a slice of ui-04 without being it. Full multi-lane legibility stays out of scope - a separate arrangement-view item. xtask gains internal rev-core; no external dep, no schema change, no new command."
+    },
+    {
+     "ts": "2026-07-21",
+     "text": "Implemented after make-it-so, gate-first. Deviation from proposal decision #4: the second-pass two-track recording moved from rev-rec (headless, where overdub-against-playback is awkward with no one to play along) into the rev-studio harness (interactive, its natural home), plus a deterministic headless test (two_tracks_record_and_replay_together). rev-rec stays single-track. The tmon child also sets a 12-ET tuning so its take is realistic and viewable on the roll (that is what proved Tier A). rev-studio builds clean and its recorder/two-track logic is unit-tested, but its click-to-record-and-see-live flow needs the user's eyeball (no UI automation). Status verifying pending that."
+    },
+    {
+     "ts": "2026-07-21",
+     "text": "Accepted by the user at the keyboard - rev-studio's arm/record/see-on-roll/replay flow works. rec-02 complete. Note: the tmon kill-9 gate now largely satisfies core-04's TMON v0 (only the JSON round-trip half remains there); and rev-studio has prototyped a slice of ui-04's transport-to-engine wiring."
+    }
+   ],
    "created": "2026-07-19",
-   "completed": null
+   "completed": "2026-07-21"
   },
   {
    "id": "rec-03",
    "title": "16-ET party trick",
    "kind": "minor",
    "track": "recording",
-   "status": "planned",
+   "status": "complete",
    "depends_on": [
     "eng-07"
    ],
@@ -981,10 +999,19 @@
    ],
    "links": [],
    "plan": "MHALL with a one-line tuning swap to 16-ET Mavila: audible proof the plumbing is degree-native.",
-   "verify": "",
-   "notes": [],
+   "verify": "Built into the rev-studio harness (reusing its transport+roll, as the user asked): the `t` key cycles the arrangement's tuning via one SetPhrase{tuning_id} command, redraws the roll (notes move to their new pitches, degree ladders change) and, if a take is playing, recompiles so the flip is heard live. Proven headless by retuning_a_take_keeps_the_degrees_and_moves_the_pitch: a recorded note 64 keeps its degree (model still holds 64) but its compiled frequency changes between 12-ET and 16-ET - same performance, new physics, R-002 degree-native. Minor item, no checkpoint (SetPhrase pre-existed; no new API/schema/dep). Full gate green. The live audible flip in rev-studio is the user's eyeball.",
+   "notes": [
+    {
+     "ts": "2026-07-21",
+     "text": "Reused the rev-studio framework per the user's steer rather than a standalone binary - the party trick is one SetPhrase plus a redraw, so it rode the harness that already had transport, roll, and replay. No proposal (minor, within approved ground). Deviation from the plan one-liner: demonstrated by retuning a recorded take (record in 12-ET, press t, hear/see 16-ET) rather than by MHALL specifically - more convincing, since it is the user's own take that retunes. Left for the user: press t in rev-studio to hear the flip, then accept."
+    },
+    {
+     "ts": "2026-07-21",
+     "text": "Accepted by the user - the t-key retune works. rec-03 complete. With it, all four PoC headline features stand: transport shape, a ported voice, MIDI record/replay, and the degree-native tuning swap."
+    }
+   ],
    "created": "2026-07-19",
-   "completed": null
+   "completed": "2026-07-21"
   },
   {
    "id": "dsp-01",

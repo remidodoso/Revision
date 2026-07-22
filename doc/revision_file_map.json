@@ -127,7 +127,7 @@
   },
   {
    "path": "src/rust/xtask/",
-   "desc": "rev-xtask: repo automation. schema (generate/check), filemap (both directions), plan (viewer shape + now ceiling); tmon/perf pending",
+   "desc": "rev-xtask: repo automation. schema, filemap, and plan checkers, plus tmon (the kill-9 store durability gate, rec-02); perf pending",
    "layer": "tooling",
    "generated": false
   },
@@ -259,6 +259,11 @@
   {
    "path": "src/rust/app/src/bin/rec.rs",
    "desc": "rev-rec: capture path end to end (rec-01). Arm a track, play a keyboard, journal notes per frame, replay - headless; --overdub, --project",
+   "generated": false
+  },
+  {
+   "path": "src/rust/app/src/bin/studio.rs",
+   "desc": "rev-studio: throwaway record-onto-roll harness (rec-02). Transport strip over the live roll, two tracks, record light, live redraw",
    "generated": false
   },
   {

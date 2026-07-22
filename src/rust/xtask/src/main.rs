@@ -6,7 +6,7 @@
 //!                             database; with a path, document that project
 //!   filemap                   verify doc/revision_file_map.json both ways
 //!   plan                      verify doc/revision_plan.json against its viewer
-//!   tmon                      the store kill-test (lands with stage 1's exit)
+//!   tmon                      the store kill-test: journal, kill -9, reopen intact
 //!   perf                      ledger recorder (lands with stage 2)
 //!
 //! Unimplemented commands exit nonzero so they can never green a pipeline by
@@ -15,6 +15,7 @@
 mod filemap;
 mod plan;
 mod schema;
+mod tmon;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -28,8 +29,9 @@ fn main() -> ExitCode {
         Some("schema") => schema::run(&repo_root(), &rest),
         Some("filemap") => filemap::run(&repo_root()),
         Some("plan") => plan::run(&repo_root()),
-        Some(pending @ ("tmon" | "perf")) => {
-            eprintln!("xtask {pending}: not implemented yet (lands with its consumer stage)");
+        Some("tmon") => tmon::run(&repo_root(), &rest),
+        Some("perf") => {
+            eprintln!("xtask perf: not implemented yet (lands with its consumer stage)");
             return ExitCode::FAILURE;
         }
         _ => {

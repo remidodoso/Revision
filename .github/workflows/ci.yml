@@ -14,6 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # cpal (ALSA) and winit/softbuffer (X11/Wayland) link system libraries, so
+      # the Linux runner must have their -dev packages before anything compiles.
+      - run: sudo apt-get update && sudo apt-get install -y libasound2-dev libxkbcommon-dev libwayland-dev libx11-dev pkg-config
       - run: cargo fmt --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       # Generated docs are only worth committing if CI proves them current.
@@ -26,6 +29,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: cargo test --workspace
+      # The kill-9 durability gate (rec-02): journal, hard-kill a child
+      # mid-take, reopen, prove no acknowledged commit was lost.
+      - run: cargo xtask tmon
 
   # Cross-compile *checks*, honestly not tests: proves the code still compiles
   # for the other family platforms.
@@ -40,6 +46,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Same system libraries as the lint job: the workspace check compiles the
+      # audio and windowing crates, which link ALSA and X11/Wayland.
+      - run: sudo apt-get update && sudo apt-get install -y libasound2-dev libxkbcommon-dev libwayland-dev libx11-dev pkg-config
       - run: cargo check --workspace --target x86_64-unknown-linux-gnu
       - run: cargo check -p rev-core --target wasm32-unknown-unknown
 

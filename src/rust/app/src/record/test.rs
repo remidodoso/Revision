@@ -6,12 +6,12 @@
 //! those build a throwaway project in a temp dir, the same pattern the demo
 //! binaries use.
 
-use rev_core::phrase::{Container, EventSpec, PhraseSpec, TrackSpec};
+use rev_core::phrase::{Change, Container, EventSpec, PhrasePatch, PhraseSpec, TrackSpec};
 use rev_core::tick::{PPQ, Tick};
-use rev_core::{Command, NoteNumber, TrackId};
+use rev_core::{Command, NoteNumber, PhraseId, TrackId};
 use rev_engine::{Position, SampleTime};
 use rev_midi::{Captured, Message};
-use rev_sched::TempoMap;
+use rev_sched::{Compiler, TempoMap};
 use rev_store::query;
 use rev_testkit::TempProject;
 
@@ -308,5 +308,151 @@ fn without_a_running_transport_nothing_is_placed() {
     assert!(
         recorder.staged().is_empty(),
         "unplaceable events are dropped"
+    );
+}
+
+// --- Two tracks: the rec-02 multi-track mechanism, headless. -----------------
+
+/// A project whose arrangement carries a tuning (so notes resolve to pitches and
+/// can be compiled) and holds two empty tracks.
+fn two_track_project() -> (TempProject, PhraseId, [TrackId; 2]) {
+    let mut temp = TempProject::create().expect("create");
+    let tuning = query::tuning_by_name(temp.project().reader(), "12-ET")
+        .expect("query")
+        .map(|t| t.id);
+    let (arrangement, track) = temp
+        .project_mut()
+        .gesture(|g| {
+            let mut phrase = PhraseSpec::new("Arrangement", Tick(PPQ * 4 * 8));
+            phrase.tuning_id = tuning;
+            let arrangement = match g.exec(Command::CreatePhrase { id: None, phrase })? {
+                Command::CreatePhrase { id: Some(id), .. } => id,
+                _ => unreachable!(),
+            };
+            let mut track = [TrackId(0); 2];
+            for (i, slot) in track.iter_mut().enumerate() {
+                *slot = match g.exec(Command::CreateTrack {
+                    id: None,
+                    track: TrackSpec::new(arrangement, format!("Track {}", i + 1), i as i32),
+                })? {
+                    Command::CreateTrack { id: Some(id), .. } => id,
+                    _ => unreachable!(),
+                };
+            }
+            Ok((arrangement, track))
+        })
+        .expect("build");
+    (temp, arrangement, track)
+}
+
+#[test]
+fn two_tracks_record_and_replay_together() {
+    let (mut temp, arrangement, track) = two_track_project();
+
+    // A take on each track, at different pitches so the two are distinguishable.
+    for (slot, note) in [(0usize, 60), (1usize, 67)] {
+        let mut recorder = Recorder::new(track[slot], tempo());
+        recorder.arm(Mode::Overdub);
+        prime(&mut recorder);
+        recorder.capture(note_on(note, 100, nanos_for(24_000)));
+        recorder.capture(note_off(note, nanos_for(48_000)));
+        assert_eq!(recorder.flush(temp.project_mut()).expect("flush"), 1);
+    }
+
+    // Both tracks hold their take.
+    assert_eq!(track_notes(&temp, track[0]), vec![60], "track 1 recorded");
+    assert_eq!(track_notes(&temp, track[1]), vec![67], "track 2 recorded");
+
+    // Replay: one schedule over both tracks carries notes from each, tagged by
+    // the track's index in the compile list (voice 0 and voice 1).
+    let point: Vec<(Tick, i64)> = query::tempo_point(temp.project().reader(), arrangement)
+        .expect("tempo")
+        .into_iter()
+        .map(|p| (p.at_tick, p.usec_per_quarter))
+        .collect();
+    let mut compiler = Compiler::new(TempoMap::new(point, RATE), vec![track[0], track[1]]);
+    let chunk = compiler
+        .chunk(
+            temp.project(),
+            SampleTime(0),
+            SampleTime(u64::from(RATE) * 4),
+        )
+        .expect("compile");
+    assert_eq!(
+        compiler.unplayable(),
+        0,
+        "both notes resolve through the tuning"
+    );
+    assert!(chunk.note.iter().any(|n| n.voice == 0), "track 1 replays");
+    assert!(chunk.note.iter().any(|n| n.voice == 1), "track 2 replays");
+    assert_eq!(chunk.note.len(), 2, "exactly the two recorded notes");
+}
+
+/// rec-03, the party trick as a fact: retuning a recorded take is one command,
+/// and it moves the *physics* under the notes while the *degrees* stay put — the
+/// same performance, heard in a new tuning. Proof the pipeline is degree-native
+/// (R-002), not 12-ET with tuning bolted on.
+#[test]
+fn retuning_a_take_keeps_the_degrees_and_moves_the_pitch() {
+    let (mut temp, arrangement, track) = two_track_project();
+    let track = track[0];
+
+    // A note away from the anchor (60), so the two tunings actually disagree —
+    // note 64 is 4 semitones in 12-ET but 4 steps of 16 in 16-ET.
+    let mut recorder = Recorder::new(track, tempo());
+    recorder.arm(Mode::Overdub);
+    prime(&mut recorder);
+    recorder.capture(note_on(64, 100, nanos_for(24_000)));
+    recorder.capture(note_off(64, nanos_for(48_000)));
+    recorder.flush(temp.project_mut()).expect("flush");
+
+    let compile = |temp: &TempProject| -> f32 {
+        let point: Vec<(Tick, i64)> = query::tempo_point(temp.project().reader(), arrangement)
+            .expect("tempo")
+            .into_iter()
+            .map(|p| (p.at_tick, p.usec_per_quarter))
+            .collect();
+        let mut compiler = Compiler::new(TempoMap::new(point, RATE), vec![track]);
+        let chunk = compiler
+            .chunk(
+                temp.project(),
+                SampleTime(0),
+                SampleTime(u64::from(RATE) * 4),
+            )
+            .expect("compile");
+        assert_eq!(compiler.unplayable(), 0);
+        assert_eq!(chunk.note.len(), 1);
+        chunk.note[0].hz
+    };
+
+    let twelve = compile(&temp);
+
+    // The one-line swap.
+    let sixteen_id = query::tuning_by_name(temp.project().reader(), "16-ET")
+        .expect("query")
+        .expect("16-ET is seeded")
+        .id;
+    temp.project_mut()
+        .apply(Command::SetPhrase {
+            id: arrangement,
+            patch: PhrasePatch {
+                tuning_id: Change::Set(sixteen_id),
+                ..PhrasePatch::default()
+            },
+        })
+        .expect("retune");
+
+    let sixteen = compile(&temp);
+
+    // The degree did not move: the model still holds note 64.
+    assert_eq!(
+        track_notes(&temp, track),
+        vec![64],
+        "the recorded degree is unchanged"
+    );
+    // The pitch did: 16-ET's fourth step is not 12-ET's major third.
+    assert!(
+        (twelve - sixteen).abs() > 1.0,
+        "the same degree sounds at a different pitch: {twelve} Hz vs {sixteen} Hz"
     );
 }

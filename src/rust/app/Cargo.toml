@@ -42,5 +42,11 @@ path = "src/bin/mhall.rs"
 name = "rev-rec"
 path = "src/bin/rec.rs"
 
+# The record-onto-the-roll harness (rec-02): the transport strip mashed onto the
+# live piano roll. A throwaway test surface, not the product Control Bar (ui-04).
+[[bin]]
+name = "rev-studio"
+path = "src/bin/studio.rs"
+
 [dev-dependencies]
 rev-testkit = { path = "../testkit" }

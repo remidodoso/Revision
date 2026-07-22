@@ -1928,6 +1928,7 @@ dependencies = [
 name = "rev-xtask"
 version = "0.1.0"
 dependencies = [
+ "rev-core",
  "rev-store",
  "rusqlite",
  "serde_json",

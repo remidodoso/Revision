@@ -16,7 +16,7 @@ use rev_app::latency::Estimate;
 use rev_app::mhall::build;
 use rev_app::midi::Keys;
 use rev_app::roll::{self, Roll};
-use rev_core::tick::bpm_to_usec_per_quarter;
+use rev_core::{PhraseId, TrackId};
 use rev_dsp::BakeSpec;
 use rev_engine::driver::Request;
 use rev_engine::{Chunk, ChunkHandle, Command, Patch, SampleTime, What};
@@ -84,6 +84,9 @@ struct Demo {
     playhead: f64,
     said: String,
     live: String,
+    /// The tempo the material was built or recorded at, so the counter reads
+    /// correctly whether this is MHALL (120) or an opened take (its own bpm).
+    bpm: f64,
     /// The latency floor, once a block has been observed — printed once and
     /// shown live (midi-03, R-307).
     latency: Option<Estimate>,
@@ -93,7 +96,7 @@ impl Demo {
     /// Beats from the engine's sample position — the one place seconds are
     /// involved at all.
     fn beat_at(&self, sample: u64) -> f64 {
-        sample as f64 / f64::from(self.audio.sample_rate()) * (BPM / 60.0)
+        sample as f64 / f64::from(self.audio.sample_rate()) * (self.bpm / 60.0)
     }
 
     fn pane_mut(&mut self) -> Option<&mut Pane> {
@@ -275,19 +278,36 @@ impl Host for Demo {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let log = Log::open_default().unwrap_or_else(|_| Log::hush());
 
-    let directory = std::env::temp_dir().join(format!("revision_roll_{}", std::process::id()));
-    std::fs::create_dir_all(&directory)?;
-    let mut project = Project::create(directory.join("roll.revision"))?;
-    let (_arrangement, track) = build(&mut project, BPM, "12-ET")?;
+    // Two sources: MHALL built into a throwaway (the ui-06 look), or an existing
+    // project opened for viewing — a recorded take, or a kill survivor (Tier A).
+    let opened = parse_project_arg();
+    let mut cleanup = None;
+    let (project, track, arrangement, bpm) = match &opened {
+        Some((path, want_track)) => {
+            let project = Project::open(path)?;
+            let track = TrackId(want_track.unwrap_or(1));
+            let owner = query::track(project.reader(), track)?
+                .ok_or_else(|| format!("no track {} in {}", track.get(), path.display()))?;
+            let arrangement = owner.spec.phrase_id;
+            let bpm = bpm_of(&project, arrangement);
+            (project, track, arrangement, bpm)
+        }
+        None => {
+            let directory =
+                std::env::temp_dir().join(format!("revision_roll_{}", std::process::id()));
+            std::fs::create_dir_all(&directory)?;
+            let mut project = Project::create(directory.join("roll.revision"))?;
+            let (arrangement, track) = build(&mut project, BPM, "12-ET")?;
+            cleanup = Some(directory);
+            (project, track, arrangement, BPM)
+        }
+    };
+
     let mut cache = TuneCache::new();
     let roll = Roll::build(&project, &mut cache, track)?;
     log.info(
         creator::APP,
-        format!(
-            "MHALL: {} notes, {} rungs",
-            roll.note.len(),
-            roll.rung.len()
-        ),
+        format!("roll: {} notes, {} rungs", roll.note.len(), roll.rung.len()),
     );
 
     let mut audio = Audio::open_with(log, &Request::default(), |format| {
@@ -299,16 +319,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
     });
 
-    // The whole tune in one chunk, as eng-07 does.
+    // The whole track in one chunk, through the project's own tempo map.
     let rate = audio.sample_rate();
-    let mut compiler = Compiler::new(
-        TempoMap::new(
-            [(rev_core::tick::Tick(0), bpm_to_usec_per_quarter(BPM))],
-            rate,
-        ),
-        vec![track],
-    );
-    let span = (roll.beat_extent + 8.0) * 60.0 / BPM * f64::from(rate);
+    let point: Vec<(rev_core::tick::Tick, i64)> =
+        query::tempo_point(project.reader(), arrangement)?
+            .into_iter()
+            .map(|p| (p.at_tick, p.usec_per_quarter))
+            .collect();
+    let mut compiler = Compiler::new(TempoMap::new(point, rate), vec![track]);
+    let span = (roll.beat_extent + 8.0) * 60.0 / bpm * f64::from(rate);
     let chunk = compiler.chunk(&project, SampleTime(0), SampleTime(span as u64))?;
     audio.send_command(Command::now(What::TakeChunk(ChunkHandle::new(Chunk {
         from: chunk.from,
@@ -354,8 +373,47 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         playhead: 0.0,
         said: String::from("ready"),
         live: String::new(),
+        bpm,
         latency: None,
     })?;
-    let _ = std::fs::remove_dir_all(directory);
+    if let Some(directory) = cleanup {
+        let _ = std::fs::remove_dir_all(directory);
+    }
     Ok(())
+}
+
+/// `--project FILE [--track N]`: view an existing project's track instead of
+/// building MHALL. `None` is the MHALL default. `--track` is a track id, and
+/// defaults to the first track (id 1), which is what a single-take project has.
+fn parse_project_arg() -> Option<(std::path::PathBuf, Option<i64>)> {
+    let mut project = None;
+    let mut track = None;
+    let mut argument = std::env::args().skip(1);
+    while let Some(flag) = argument.next() {
+        match flag.as_str() {
+            "--project" => project = argument.next().map(std::path::PathBuf::from),
+            "--track" => track = argument.next().and_then(|v| v.parse().ok()),
+            "--help" | "-h" => {
+                println!("rev-roll [--project FILE.revision [--track N]]");
+                std::process::exit(0);
+            }
+            other => {
+                eprintln!("unknown argument {other:?}; try --help");
+                std::process::exit(2);
+            }
+        }
+    }
+    project.map(|path| (path, track))
+}
+
+/// The material's tempo, read from its arrangement's first tempo point. 120 if it
+/// carries no map — the same default the tempo map itself uses.
+fn bpm_of(project: &Project, arrangement: PhraseId) -> f64 {
+    match query::tempo_point(project.reader(), arrangement) {
+        Ok(points) => points
+            .first()
+            .map(|p| 60_000_000.0 / p.usec_per_quarter as f64)
+            .unwrap_or(BPM),
+        Err(_) => BPM,
+    }
 }
