@@ -100,6 +100,13 @@ impl Audio {
         self.sample_rate
     }
 
+    /// The clock origin the engine measures its correlation pairs from. Hand it
+    /// to `Keys::new` so live input is stamped against the same zero the engine
+    /// publishes — the shared origin recording needs (rec-01 §3).
+    pub fn origin(&self) -> std::time::Instant {
+        self.session.origin()
+    }
+
     pub fn log(&self) -> &Log {
         &self.log
     }

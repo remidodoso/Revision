@@ -54,6 +54,13 @@ Coding conventions live in **`revision_coding_standard.md`**. Its default is ord
 Rust convention for a project expected to grow large; the document records only
 deviations and decisions (naming, layout, file size, comments, test placement).
 
+## Tools
+
+Useful development tools live in **`dev_utils/`** — small, standalone, standard-library
+scripts for inspecting and driving Revision (e.g. `dump_log.py`, which reads the
+observation log). Its **`agent_readme.md`** indexes them; consult it before hand-rolling
+a throwaway, and add any new tool you write to its table so the next agent finds it.
+
 ## The work cycle and the plan document
 
 All work — major architectural projects, minor odd jobs, and everything between —

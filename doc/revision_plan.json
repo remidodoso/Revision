@@ -13,7 +13,7 @@
  "now": [
   {
    "ts": "2026-07-21",
-   "text": "MIDI plays: Padlington sounds live from a MIDI keyboard with an honest latency floor (midi-01/02/03); MHALL is visible and playing on the read-only piano roll (ui-06); the scrollable pane and its zoom cluster are built (ui-07). `cargo xtask plan` now enforces proposal filing and doc-link resolution (misc-05, at verifying). Next: rec-01, MIDI capture to the journal - the recording arc, whose whole premise is that a kill mid-take loses nothing."
+   "text": "MIDI records and replays: rev-rec captures live keyboard input against a shared engine/fork clock origin, journals each frame's notes as record_batch, and replays the take - headless (rec-01 complete; proven live, 11 notes on the Oxygen Pro Mini). Next: rec-02, reframed as the durability gate (kill -9 mid-take loses nothing committed - the PoC's core promise, headless) with Tier A folded in (see the survivor on the roll). Noted: two-track recording won't fully land for the user until an arrangement/multi-lane view exists - a separate, not-yet-planned UI item. Awaiting go-ahead for rec-02."
   }
  ],
  "tracks": [
@@ -919,10 +919,9 @@
    "title": "Capture path: record_batch to journal, arm/modes",
    "kind": "major",
    "track": "recording",
-   "status": "planned",
+   "status": "complete",
    "depends_on": [
-    "midi-03",
-    "ui-04"
+    "midi-03"
    ],
    "requirements": [
     "R-801",
@@ -930,12 +929,22 @@
     "R-807",
     "R-808"
    ],
-   "links": [],
+   "links": [
+    {
+     "doc": "completed/revision_rec01_proposal.md",
+     "anchor": "Decisions to approve"
+    }
+   ],
    "plan": "Record-arm; replace and overdub; captured events journaled as record_batch commands landing as direct events on the track.",
-   "verify": "",
-   "notes": [],
+   "verify": "Built as an app-side Recorder (app/src/record.rs) plus a headless rev-rec demo (app/src/bin/rec.rs); no new dependency, no schema change, no new command (RecordBatch + its store executor + inverse pre-existed). One seam change: the clock origin is minted once in session_with_thru and seeded into both RtPort (engine) and EngineSession (the app reads it via origin() and hands it to Keys), so correlate_nanos and the fork's Captured.nanos share a zero - the both_ends_share_one_clock_origin test asserts it. The Recorder re-pairs note-on/off into placed EventSpecs (nanos->sample via Correlation, ->play sample via the running session-minus-play offset, ->tick via TempoMap) and journals each frame's completed notes as one RecordBatch gesture; a kill mid-take loses only unfinished held notes (capture_commits_as_it_goes_not_at_stop reopens from disk and finds both notes committed). Replace clears the whole track first (undoable via RemoveEvent's inverse); overdub appends. 11 recorder tests + the seam test. Full gate green: fmt clean, clippy 0 warnings, filemap/plan current, whole suite passes (2 ignored debts unchanged). Proven live on this box: rev-rec opens the LG TV device and the Oxygen Pro Mini and runs the record->replay round trip headless. rec-02 owns the kill -9 process test and the two-track demo; rec-03 the 16-ET swap.",
+   "notes": [
+    {
+     "ts": "2026-07-21",
+     "text": "Implemented after make-it-so. Decision #2 accepted (headless, decoupled from ui-04): the ui-04 depends_on is dropped. Deviation from proposal decision #1: rather than app-main minting the origin and passing it into the session constructor, session_with_thru mints it and both ends derive from it (the app reads EngineSession::origin()). Same one-origin guarantee, and it dodges the ordering concern the proposal used to reject 'engine exposes its origin' - here the seam, not the engine, owns the zero, and it exists before either the engine or the fork. Held notes at disarm are dropped with a count (proposal §5). Tier A (open the recorded project in rev-roll to SEE the notes) is the user's next 'extra credit' step."
+    }
+   ],
    "created": "2026-07-19",
-   "completed": null
+   "completed": "2026-07-21"
   },
   {
    "id": "rec-02",

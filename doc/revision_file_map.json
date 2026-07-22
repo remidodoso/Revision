@@ -8,6 +8,7 @@
   "ignore": [
    ".git",
    ".gitignore",
+   ".claude",
    ".nojekyll",
    "Cargo.lock",
    "LICENSE-APACHE",
@@ -54,6 +55,11 @@
   {
    "path": "asset/",
    "desc": "bundled non-crate assets + asset.json manifest (source, version, sha256, licence, author) feeding R-1514 attribution and R-1515 credits",
+   "generated": false
+  },
+  {
+   "path": "dev_utils/",
+   "desc": "developer/agent utilities, not shipped, not a crate: agent_readme.md indexes them; dump_log.py reads the observation.revlog log. stdlib-only",
    "generated": false
   },
   {
@@ -251,6 +257,11 @@
    "generated": false
   },
   {
+   "path": "src/rust/app/src/bin/rec.rs",
+   "desc": "rev-rec: capture path end to end (rec-01). Arm a track, play a keyboard, journal notes per frame, replay - headless; --overdub, --project",
+   "generated": false
+  },
+  {
    "path": "src/rust/dsp",
    "desc": "rev-dsp: the PADsynth bake (dsp-02). Pure data-in/data-out, no workspace dependency; realfft. R-705/R-706/R-713/R-720",
    "generated": false
@@ -328,6 +339,16 @@
   {
    "path": "src/rust/app/src/follow",
    "desc": "follow state-machine tests: jump-and-land, take-over, re-arm on locate, zoom anchors playhead, end-of-piece clamp",
+   "generated": false
+  },
+  {
+   "path": "src/rust/app/src/record.rs",
+   "desc": "the Recorder (rec-01): arm/mode, on/off pairing to placed EventSpecs via Correlation+TempoMap, per-frame RecordBatch journaling. R-807",
+   "generated": false
+  },
+  {
+   "path": "src/rust/app/src/record",
+   "desc": "recorder tests: placement on the tick grid, on/off pairing and duration, overdub vs replace, replace undo, commits-as-it-goes durability",
    "generated": false
   },
   {

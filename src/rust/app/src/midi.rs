@@ -11,9 +11,11 @@
 //! all here; choosing a specific device and remembering it across sessions is a
 //! settings-store concern deferred until that store exists.
 //!
-//! The clock-correlation origin is not shared with the engine yet: **playing
-//! needs no timestamp** (a note sounds as soon as it arrives), so that wiring
-//! lands with recording (rec-01), where a timestamp decides where a note falls.
+//! The clock-correlation origin **is** shared with the engine (rec-01 §3): the
+//! seam mints it, [`crate::audio::Audio::origin`] hands it out, and
+//! [`Keys::new`] stamps every captured event against it — so a recorded note
+//! maps to the right sample. Playing never needed it (a note sounds as soon as
+//! it arrives); recording does, and that is when it was wired.
 
 use std::time::Instant;
 
@@ -43,8 +45,10 @@ pub struct Keys {
 
 impl Keys {
     /// Build the manager around the engine's thru sender and the tuning to
-    /// resolve keys through.
-    pub fn new(thru: ThruSender, snapshot: NoteHz) -> Keys {
+    /// resolve keys through. `origin` is the engine's correlation origin
+    /// (`Audio::origin`), so captured events are stamped against the same zero
+    /// the engine publishes (rec-01 §3).
+    pub fn new(thru: ThruSender, snapshot: NoteHz, origin: Instant) -> Keys {
         Keys {
             devices: Devices::new(),
             connection: None,
@@ -52,7 +56,7 @@ impl Keys {
             events: None,
             thru: Some(thru),
             snapshot,
-            origin: Instant::now(),
+            origin,
         }
     }
 

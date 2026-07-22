@@ -334,8 +334,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .map(|t| NoteHz::from_tuning(&t))
         .unwrap_or_else(NoteHz::silent);
+    let origin = audio.origin();
     let keys = match audio.take_thru() {
-        Some(thru) => Keys::new(thru, snapshot),
+        Some(thru) => Keys::new(thru, snapshot, origin),
         None => unreachable!("audio always yields its thru sender once"),
     };
     let demo_log = audio.log().clone();

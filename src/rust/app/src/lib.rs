@@ -11,4 +11,5 @@ pub mod latency;
 pub mod mhall;
 pub mod midi;
 pub mod pad;
+pub mod record;
 pub mod roll;

@@ -71,13 +71,18 @@ pub struct Engine {
     /// Device buffer latency in frames, input and output. **Ours only** — never
     /// an instrument's own response (R-310).
     latency: (u32, u32),
-    /// The origin the clock-correlation pair is measured from. Arbitrary and
-    /// monotonic, which is all a correlation needs.
+    /// The origin the clock-correlation pair is measured from. Minted at the
+    /// seam (`session_with_thru`) and shared with the input fork so both stamp
+    /// against one zero (rec-01 §3). Arbitrary and monotonic, which is all a
+    /// correlation needs.
     origin: Instant,
 }
 
 impl Engine {
     pub fn new(format: Format, port: RtPort) -> Engine {
+        // The correlation origin is minted at the seam and shared with the input
+        // fork; read it before `port` moves into the struct (rec-01 §3).
+        let origin = port.origin;
         Engine {
             tone: Tone::new(format.sample_rate),
             format,
@@ -102,7 +107,7 @@ impl Engine {
             cursor: 0,
             block_frames: 0,
             latency: (0, 0),
-            origin: Instant::now(),
+            origin,
         }
     }
 

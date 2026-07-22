@@ -21,6 +21,16 @@ fn commands_refuse_rather_than_drop_when_the_ring_is_full() {
 }
 
 #[test]
+fn both_ends_share_one_clock_origin() {
+    // The origin is minted once at the seam and seeded into both ends, so the
+    // engine's `correlate_nanos` and the input fork's `Captured.nanos` are on
+    // one monotonic scale (rec-01 §3). The app reads it via `origin()`; the RT
+    // side carries the same value.
+    let (app, rt, _thru) = session_with_thru();
+    assert_eq!(app.origin(), rt.origin, "one origin, both ends");
+}
+
+#[test]
 fn observations_drop_and_count_when_the_ring_is_full() {
     // The other side of the asymmetry: an observation is not intent, and
     // blocking the audio thread to preserve a log line inverts the priority

@@ -36,5 +36,11 @@ path = "src/bin/tone.rs"
 name = "rev-mhall"
 path = "src/bin/mhall.rs"
 
+# The capture path end to end: arm, play a keyboard, journal the notes, replay
+# them (rec-01). Headless — the record button and light are ui-04's.
+[[bin]]
+name = "rev-rec"
+path = "src/bin/rec.rs"
+
 [dev-dependencies]
 rev-testkit = { path = "../testkit" }

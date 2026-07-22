@@ -16,6 +16,7 @@
 //! priority order.
 
 use std::sync::Arc;
+use std::time::Instant;
 
 use rtrb::{Consumer, Producer, RingBuffer};
 
@@ -52,6 +53,11 @@ pub struct RtPort {
     /// single-producer, and routing live notes through the app would cost a UI
     /// frame of latency (midi-01 §3).
     pub(crate) thru: Consumer<Live>,
+    /// The origin the clock-correlation pair is measured from, minted at
+    /// session construction (midi-01 §4, rec-01 §3). The engine reads it here so
+    /// its `correlate_nanos` and the input fork's `Captured.nanos` share one zero
+    /// — the seam owns the clock origin, and both sides derive from it.
+    pub(crate) origin: Instant,
     /// Observations the ring could not hold. Reported on the next successful
     /// push, so a gap in the log is itself visible.
     pub(crate) dropped: u64,
@@ -116,6 +122,10 @@ pub struct EngineSession {
     obs: Consumer<Obs>,
     garbage: Consumer<Garbage>,
     position: Arc<PositionCell>,
+    /// The clock origin the engine measures `correlate_nanos` from, kept here so
+    /// the app can hand the *same* origin to the input fork (rec-01 §3). One
+    /// value, minted at construction, read by both sides.
+    origin: Instant,
 }
 
 impl EngineSession {
@@ -124,6 +134,13 @@ impl EngineSession {
         self.command
             .push(command)
             .map_err(|rtrb::PushError::Full(refused)| Refused(refused))
+    }
+
+    /// The monotonic origin the engine's correlation pairs are measured from.
+    /// The input fork must stamp its captured events against this same origin,
+    /// or a recorded note lands in the wrong place (rec-01 §3).
+    pub fn origin(&self) -> Instant {
+        self.origin
     }
 
     /// Where the transport is, right now.
@@ -167,6 +184,10 @@ pub fn session_with_thru() -> (EngineSession, RtPort, ThruSender) {
     let (garbage_tx, garbage_rx) = RingBuffer::new(GARBAGE_CAPACITY);
     let (thru_tx, thru_rx) = RingBuffer::new(THRU_CAPACITY);
     let position = Arc::new(PositionCell::new());
+    // One origin, minted here at the seam and seeded into both ends, so the
+    // engine's `correlate_nanos` and the fork's `Captured.nanos` share a zero
+    // (rec-01 §3). Arbitrary and monotonic, which is all a correlation needs.
+    let origin = Instant::now();
 
     (
         EngineSession {
@@ -174,6 +195,7 @@ pub fn session_with_thru() -> (EngineSession, RtPort, ThruSender) {
             obs: obs_rx,
             garbage: garbage_rx,
             position: Arc::clone(&position),
+            origin,
         },
         RtPort {
             command: command_rx,
@@ -181,6 +203,7 @@ pub fn session_with_thru() -> (EngineSession, RtPort, ThruSender) {
             garbage: garbage_tx,
             position,
             thru: thru_rx,
+            origin,
             dropped: 0,
         },
         ThruSender {
